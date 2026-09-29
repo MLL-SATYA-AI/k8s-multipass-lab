@@ -3,7 +3,7 @@
 # KUBERNETES NODE PREP (run on controller AND every worker)
 # Auto-detects the bridged interface IP and pins kubelet to it.
 # Usage: bash prep_node.sh            (auto-detect)
-#        bash prep_node.sh 192.168.1.50   (manual IP override)
+#        bash prep_node.sh <static-ip>   (manual IP override)
 # =====================================================================
 
 set -e
@@ -31,7 +31,7 @@ find_bridged_iface() {
 }
 
 IFACE="$(find_bridged_iface)"
-NODE_IP="${1:-$(ip -4 -o addr show "$IFACE" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)}"
+NODE_IP="${1:-$(ip -4 -o addr show dev "$IFACE" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)}"
 
 if [ -z "$NODE_IP" ]; then
   echo "ERROR: could not detect an IPv4 address on $IFACE. Run 'ip -4 addr' and pass the IP as an argument."

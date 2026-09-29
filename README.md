@@ -13,6 +13,55 @@ The interactive [HTML guide](k8s_multipass_cluster_guide.html) contains the same
 
 Run all PowerShell commands below from the repository root. The scripts detect the bridged network interface and each VM's IP automatically. Your subnet and addresses will differ from anyone else's; the sample values in the HTML guide are examples only. If a VM has more than one possible bridged interface, set `K8S_INTERFACE` to the correct interface name when invoking a script.
 
+## Cluster layout
+
+```mermaid
+flowchart LR
+    Host[Windows host<br/>Multipass + VirtualBox]
+    LAN[Host Ethernet network<br/>Your bridged subnet]
+    NAT[Multipass NAT interface on each VM<br/>Not used for cluster traffic]
+    Controller[controller-001<br/>User-selected bridged IP<br/>API server + control plane]
+    Worker1[worker-node1<br/>User-selected bridged IP]
+    Worker2[worker-node2<br/>User-selected bridged IP]
+    Calico[Calico pod network<br/>10.244.0.0/16]
+
+    Host -->|creates bridged VMs| Controller
+    Host -->|creates bridged VMs| Worker1
+    Host -->|creates bridged VMs| Worker2
+    LAN --- Controller
+    LAN --- Worker1
+    LAN --- Worker2
+    Controller -->|Kubernetes API :6443| Worker1
+    Controller -->|Kubernetes API :6443| Worker2
+    Calico --- Controller
+    Calico --- Worker1
+    Calico --- Worker2
+    Controller -.-> NAT
+    Worker1 -.-> NAT
+    Worker2 -.-> NAT
+```
+
+## Setup flow
+
+```mermaid
+flowchart TD
+    A[Install VirtualBox, Multipass, kubectl] --> B[Launch controller and two workers]
+    B --> C[Inspect routes and IPv4 addresses on each VM]
+    C --> D[Identify each bridged interface and the common subnet]
+    D --> E[Choose three unused static IPs in that subnet]
+    E --> F[Apply static IPs with set_static_ip.sh]
+    F --> G[Restart VMs and verify worker-to-controller pings]
+    G --> H[Run prep_node.sh on all nodes]
+    H --> I[Initialize controller and install Calico]
+    I --> J[Join both workers using the generated command]
+    J --> K[Wait for all nodes to become Ready]
+    K --> L[Optional: configure Windows kubectl and take snapshots]
+    C -. ambiguous interface .-> M[Set K8S_INTERFACE for that VM]
+    M --> F
+    G -. ping fails .-> N[Resolve bridge, subnet, or firewall issue]
+    N --> C
+```
+
 ## 1. Install and check prerequisites
 
 Install VirtualBox before Multipass so Multipass can use VirtualBox as its driver. In PowerShell, check the driver:

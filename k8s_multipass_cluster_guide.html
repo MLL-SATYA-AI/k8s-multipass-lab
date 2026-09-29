@@ -212,7 +212,7 @@ footer{margin-top:70px;color:var(--muted);font-size:.85rem;border-top:1px solid 
       </g>
       <g style="fill:var(--sea)"><circle cx="170" cy="116" r="5"/><circle cx="450" cy="116" r="5"/><circle cx="730" cy="116" r="5"/></g>
       <g style="fill:var(--muted);font:500 12px var(--mono)" text-anchor="middle">
-        <text x="170" y="145">enp0s8</text><text x="450" y="145">enp0s8</text><text x="730" y="145">enp0s8</text>
+        <text x="170" y="145">bridged NIC</text><text x="450" y="145">bridged NIC</text><text x="730" y="145">bridged NIC</text>
       </g>
 
       <!-- VMs -->
@@ -223,7 +223,7 @@ footer{margin-top:70px;color:var(--muted);font-size:.85rem;border-top:1px solid 
         <text x="170" y="244" text-anchor="middle" style="fill:var(--sea);font:500 13px var(--mono)">static IP (step 3)</text>
         <text x="170" y="272" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">API server · etcd</text>
         <text x="170" y="290" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">scheduler · controller-manager</text>
-        <text x="170" y="324" text-anchor="middle" style="fill:var(--muted);font:400 11px var(--mono)">enp0s3 10.0.2.15 (ignored)</text>
+        <text x="170" y="324" text-anchor="middle" style="fill:var(--muted);font:400 11px var(--mono)">NAT interface (ignored)</text>
 
         <rect x="340" y="160" width="220" height="182" rx="12" style="fill:var(--surface);stroke:var(--kelp);stroke-width:2"/>
         <use href="#i-package" x="437" y="174" width="26" height="26" style="fill:none;stroke:var(--kelp);stroke-width:2;stroke-linecap:round;stroke-linejoin:round"/>
@@ -231,7 +231,7 @@ footer{margin-top:70px;color:var(--muted);font-size:.85rem;border-top:1px solid 
         <text x="450" y="244" text-anchor="middle" style="fill:var(--kelp);font:500 13px var(--mono)">static IP (step 3)</text>
         <text x="450" y="272" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">kubelet · containerd</text>
         <text x="450" y="290" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">runs your pods</text>
-        <text x="450" y="324" text-anchor="middle" style="fill:var(--muted);font:400 11px var(--mono)">enp0s3 10.0.2.15 (ignored)</text>
+        <text x="450" y="324" text-anchor="middle" style="fill:var(--muted);font:400 11px var(--mono)">NAT interface (ignored)</text>
 
         <rect x="620" y="160" width="220" height="182" rx="12" style="fill:var(--surface);stroke:var(--kelp);stroke-width:2"/>
         <use href="#i-package" x="717" y="174" width="26" height="26" style="fill:none;stroke:var(--kelp);stroke-width:2;stroke-linecap:round;stroke-linejoin:round"/>
@@ -239,7 +239,7 @@ footer{margin-top:70px;color:var(--muted);font-size:.85rem;border-top:1px solid 
         <text x="730" y="244" text-anchor="middle" style="fill:var(--kelp);font:500 13px var(--mono)">static IP (step 3)</text>
         <text x="730" y="272" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">kubelet · containerd</text>
         <text x="730" y="290" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">runs your pods</text>
-        <text x="730" y="324" text-anchor="middle" style="fill:var(--muted);font:400 11px var(--mono)">enp0s3 10.0.2.15 (ignored)</text>
+        <text x="730" y="324" text-anchor="middle" style="fill:var(--muted);font:400 11px var(--mono)">NAT interface (ignored)</text>
       </g>
 
       <!-- calico overlay -->
@@ -322,9 +322,12 @@ multipass list</pre></div>
     <h2>Check the network</h2>
     <span class="where"><svg class="i"><use href="#i-monitor"/></svg>PowerShell on Windows</span>
   </div>
-  <p>Find the controller's real address on <code>enp0s8</code>, then ping it from both workers. Kubernetes can't work until this succeeds. These addresses come from DHCP and can change, so the next step makes them permanent.</p>
+  <p>Interface names and addresses differ between machines. Inspect the controller's default route and IPv4 interfaces, then identify the bridged interface (normally the global IPv4 interface other than the one used by the default route). Check all three VMs; the bridged addresses should share a subnet. Ping the controller's bridged address from both workers before continuing. DHCP addresses can change, so the next step makes them permanent.</p>
   <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
-<pre>multipass exec controller-001 -- ip -4 addr show enp0s8
+<pre>multipass exec controller-001 -- ip -4 route show default
+ multipass exec controller-001 -- ip -4 -o addr show scope global
+ multipass exec worker-node1 -- ip -4 -o addr show scope global
+ multipass exec worker-node2 -- ip -4 -o addr show scope global
 
 <span class="c"># use the controller address printed above</span>
 multipass exec worker-node1 -- ping -c 2 &lt;controller-IP&gt;
@@ -375,11 +378,11 @@ multipass exec worker-node2 -- ping -c 2 &lt;controller-IP&gt;</pre></div>
   </figure>
 
   <h3>Work out your own subnet</h3>
-  <p>There's no fixed subnet for this step &mdash; it depends on how your PC or router hands out addresses on the bridged network, so don't assume <code>192.168.137.x</code>. Use the address step 2 printed for <code>enp0s8</code> on the controller: keep everything except the last number. For example, if step 2 showed <code>192.168.137.63/24</code>, your subnet is <code>192.168.137.0/24</code> and you'll pick host numbers like <code>.101</code>&ndash;<code>.103</code> inside it. If it showed <code>192.168.1.40/24</code>, your subnet is <code>192.168.1.0/24</code> instead, and so on &mdash; common ranges are <code>192.168.x.0/24</code>, <code>10.x.x.0/24</code> or <code>172.16&ndash;31.x.0/24</code>, all with Windows Internet Connection Sharing supplying <code>/24</code>.</p>
+  <p>There's no fixed subnet or interface name for this step; both depend on your network. Use the controller's bridged-interface address and prefix from step 2 to identify your subnet. For example, an address ending in <code>/24</code> is on a subnet containing the same first three octets, but use the prefix actually shown by your VM. Confirm the worker bridged addresses are in that subnet too.</p>
   <div class="note"><svg class="i"><use href="#i-info"/></svg><p>You're choosing where each VM lives on <em>your</em> network, so three addresses that work on one machine may already be taken on another. Skip the specific numbers below and pick your own free addresses in your subnet.</p></div>
 
   <h3>Pick three free addresses</h3>
-  <p>Fill in your subnet's first three octets once, then pick three host numbers outside your router's DHCP range (check your router settings, or stay above <code>.100</code> as a rule of thumb).</p>
+  <p>Pick three distinct unused addresses in your bridged subnet and outside your router's DHCP pool. Check the router's DHCP range and reservations; a ping timeout alone does not prove an address is free.</p>
   <div class="tablewrap"><table>
     <thead><tr><th>VM</th><th>Static IP</th></tr></thead>
     <tbody>
@@ -393,32 +396,32 @@ multipass exec worker-node2 -- ping -c 2 &lt;controller-IP&gt;</pre></div>
 <pre>ping &lt;your-subnet&gt;.101
 ping &lt;your-subnet&gt;.102
 ping &lt;your-subnet&gt;.103</pre></div>
-  <p>Timeouts or "destination host unreachable" mean the address is free. The rest of this guide uses <code>192.168.137.101/102/103</code> as an example &mdash; wherever you see those addresses in later steps, substitute the three you picked here.</p>
+  <p>Any IPs shown below are examples only. Substitute the three addresses you selected whenever you run a command or check output.</p>
 
   <h3>Copy and run the script</h3>
-  <p>Swap in the three addresses you picked above &mdash; the ones below (<code>.101</code>/<code>.102</code>/<code>.103</code> on <code>192.168.137.x</code>) are only an example.</p>
+  <p>Use the static addresses you selected for your own network. The script detects the bridged interface automatically; if it reports multiple candidates, pass <code>K8S_INTERFACE</code> with the correct interface name.</p>
   <div class="code"><div class="code-top"><span>PowerShell &mdash; example addresses, use your own</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
 <pre>multipass transfer .\set_static_ip.sh controller-001:/home/ubuntu/
 multipass transfer .\set_static_ip.sh worker-node1:/home/ubuntu/
 multipass transfer .\set_static_ip.sh worker-node2:/home/ubuntu/
 
-multipass exec controller-001 -- bash set_static_ip.sh 192.168.137.101
-multipass exec worker-node1 -- bash set_static_ip.sh 192.168.137.102
-multipass exec worker-node2 -- bash set_static_ip.sh 192.168.137.103</pre></div>
-  <div class="code out"><div class="code-top"><span>Each run ends with only the static address on enp0s8</span></div>
+<pre>multipass exec controller-001 -- bash set_static_ip.sh &lt;controller-static-IP&gt;
+multipass exec worker-node1 -- bash set_static_ip.sh &lt;worker1-static-IP&gt;
+multipass exec worker-node2 -- bash set_static_ip.sh &lt;worker2-static-IP&gt;</pre></div>
+  <div class="code out"><div class="code-top"><span>Each run reports the detected interface and static address</span></div>
 <pre>&gt;&gt;&gt; Static IP : 192.168.137.101/24
 &gt;&gt;&gt; Result:
-3: enp0s8: ...
-    inet 192.168.137.101/24 ... scope global enp0s8</pre></div>
+3: &lt;bridged-interface&gt;: ...
+    inet 192.168.137.101/24 ... scope global &lt;bridged-interface&gt;</pre></div>
   <div class="note"><svg class="i"><use href="#i-info"/></svg><p>If you saved or edited the script on Windows and bash complains about <code>\r</code>, strip the Windows line endings first: <code>multipass exec &lt;vm&gt; -- sed -i 's/\r$//' set_static_ip.sh</code>. The download button on this page already uses the right line endings.</p></div>
 
   <h3>Restart and confirm the addresses stick</h3>
   <div class="code"><div class="code-top"><span>PowerShell &mdash; example address, use your controller's</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
 <pre>multipass restart --all
 multipass list
-multipass exec worker-node1 -- ping -c 2 192.168.137.101
-multipass exec worker-node2 -- ping -c 2 192.168.137.101</pre></div>
-  <div class="note warn"><svg class="i"><use href="#i-alert"/></svg><p>Don't go further until <code>multipass list</code> shows the three addresses you picked (<code>.101</code>, <code>.102</code>, <code>.103</code> in the example above) after the restart, and both pings succeed. If an old DHCP address is still listed on <code>enp0s8</code>, restart that VM once more.</p></div>
+multipass exec worker-node1 -- ping -c 2 &lt;controller-static-IP&gt;
+multipass exec worker-node2 -- ping -c 2 &lt;controller-static-IP&gt;</pre></div>
+  <div class="note warn"><svg class="i"><use href="#i-alert"/></svg><p>Don't go further until <code>multipass list</code> shows the three addresses you picked after the restart and both pings succeed. If an old DHCP address remains on the bridged interface, restart that VM once more.</p></div>
   <div class="note"><svg class="i"><use href="#i-info"/></svg><p><b>Why this works:</b> Multipass defines the bridged interface in <code>/etc/netplan/50-cloud-init.yaml</code> under the ID <code>extra0</code>, matched by MAC address. The script adds a second file with the same ID and DHCP turned off, and netplan merges the two, so cloud-init's file stays untouched. Windows shares this subnet through Internet Connection Sharing and doesn't know about your static addresses, so avoid addresses another device already uses.</p></div>
   <div class="done-row"><label><input type="checkbox"> Step 3 done</label></div>
 </section>
@@ -446,7 +449,7 @@ multipass transfer .\init_controller.sh controller-001:/home/ubuntu/</pre></div>
     <h2>Prep all three nodes</h2>
     <span class="where all"><svg class="i"><use href="#i-layers"/></svg>All 3 VMs</span>
   </div>
-  <p>The script turns off swap, sets the kernel network options, installs containerd and the Kubernetes tools (v1.32), and tells kubelet to use the <code>enp0s8</code> address instead of <code>10.0.2.15</code>.</p>
+  <p>The script turns off swap, sets the kernel network options, installs containerd and the Kubernetes tools (v1.32), and detects each VM's bridged address for kubelet instead of using the NAT address.</p>
   <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
 <pre>multipass exec controller-001 -- bash prep_node.sh
 multipass exec worker-node1 -- bash prep_node.sh
@@ -455,7 +458,7 @@ multipass exec worker-node2 -- bash prep_node.sh</pre></div>
 <pre>&gt;&gt;&gt; Using node IP: 192.168.137.101
 ...
 === NODE PREP COMPLETE (IP: 192.168.137.101) ===</pre></div>
-  <div class="note warn"><svg class="i"><use href="#i-alert"/></svg><p>The node IP must be the static <code>enp0s8</code> address you set in step 3 for that VM (<code>.101</code>/<code>.102</code>/<code>.103</code> in this guide's example), never <code>10.0.2.15</code>.</p></div>
+  <div class="note warn"><svg class="i"><use href="#i-alert"/></svg><p>The node IP must be that VM's static bridged address, never its Multipass NAT address. If detection is ambiguous, rerun the script with <code>K8S_INTERFACE</code> set to the bridged interface name.</p></div>
   <div class="done-row"><label><input type="checkbox"> Step 5 done</label></div>
 </section>
 
@@ -750,15 +753,15 @@ kubectl get nodes</pre></div>
 
   <details>
     <summary>Workers can't ping the controller</summary>
-    <p>Wi-Fi adapters often block bridging, but a wired adapter like yours usually works. Confirm each VM has an <code>enp0s8</code> address with <code>multipass exec &lt;vm&gt; -- ip -4 addr</code>. If <code>enp0s8</code> is missing, the VM was created without <code>--network Ethernet</code>. Delete and recreate it. Then check that Windows Firewall isn't blocking ICMP on the bridged adapter.</p>
+    <p>Wi-Fi adapters may block bridging. Check each VM with <code>multipass exec &lt;vm&gt; -- ip -4 -o addr show scope global</code>. If there is no bridged IPv4 interface, the VM may have been created without <code>--network Ethernet</code>; delete and recreate it. Then check that Windows Firewall isn't blocking ICMP on the bridged adapter.</p>
   </details>
   <details>
-    <summary>prep_node.sh says it can't detect an IP on enp0s8</summary>
-    <p>Run <code>multipass exec &lt;vm&gt; -- ip -4 addr</code> and look for the non-<code>10.0.2.15</code> address. If it lives on a different interface name, pass that VM's own static IP manually: <code>bash prep_node.sh &lt;that-VMs-static-IP&gt;</code> (e.g. <code>bash prep_node.sh 192.168.137.101</code>). If <code>init_controller.sh</code> reports the same problem, the interface name is hard-coded as <code>enp0s8</code> at the top, so edit it there.</p>
+    <summary>A script cannot detect the bridged interface</summary>
+    <p>Run <code>multipass exec &lt;vm&gt; -- ip -4 route show default</code> and <code>multipass exec &lt;vm&gt; -- ip -4 -o addr show scope global</code>. If more than one non-default IPv4 interface appears, identify the bridged one and rerun the script with <code>env K8S_INTERFACE=&lt;interface-name&gt;</code>, for example <code>multipass exec worker-node1 -- env K8S_INTERFACE=ens4 bash prep_node.sh</code>. Interface names vary between VM images and machines.</p>
   </details>
   <details>
     <summary>kubeadm join: connection refused or timeout</summary>
-    <p>The join command must point at the controller's <code>enp0s8</code> address on port 6443. "Connection refused" against <code>10.0.2.15</code> means you're using the NAT address, which every VM shares. Confirm the API server is up with <code>multipass exec controller-001 -- sudo ss -tlnp | findstr 6443</code>, or from inside the controller <code>sudo ss -tlnp | grep 6443</code>.</p>
+    <p>The join command must point at the controller's bridged address on port 6443. "Connection refused" against <code>10.0.2.15</code> means you're using the NAT address, which every VM shares. Confirm the API server is up with <code>multipass exec controller-001 -- sudo ss -tlnp | findstr 6443</code>, or from inside the controller <code>sudo ss -tlnp | grep 6443</code>.</p>
   </details>
   <details>
     <summary>Token expired or join command lost</summary>
@@ -786,7 +789,7 @@ kubectl get nodes</pre></div>
   </details>
   <details>
     <summary>The static IP didn't apply</summary>
-    <p>Run <code>multipass exec &lt;vm&gt; -- sudo cat /etc/netplan/60-static-extra0.yaml</code> and confirm it exists and has the right MAC. Then <code>sudo netplan generate</code> shows any syntax error. If the old DHCP address is still on <code>enp0s8</code>, run <code>multipass restart &lt;vm&gt;</code>. Also confirm the ID in <code>/etc/netplan/50-cloud-init.yaml</code> is <code>extra0</code>, because the script relies on it to merge the two files.</p>
+    <p>Run <code>multipass exec &lt;vm&gt; -- sudo cat /etc/netplan/60-static-extra0.yaml</code> and confirm it exists and has the bridged interface's MAC. Then <code>sudo netplan generate</code> shows any syntax error. If the old DHCP address is still present, run <code>multipass restart &lt;vm&gt;</code>. Also confirm the ID in <code>/etc/netplan/50-cloud-init.yaml</code> is <code>extra0</code>, because the script relies on it to merge the two files.</p>
   </details>
   <details>
     <summary>kubectl on Windows can't read the config, or shows odd characters</summary>
@@ -830,7 +833,7 @@ multipass restart --all</pre></div>
   <div class="tablewrap"><table>
     <thead><tr><th>Item</th><th>Value</th><th>Why</th></tr></thead>
     <tbody>
-      <tr><td>VM network</td><td><code>192.168.137.0/24</code> <span style="color:var(--muted)">(example &mdash; yours depends on your own network, see step 3)</span></td><td>Bridged <code>enp0s8</code>, reachable between VMs</td></tr>
+      <tr><td>VM network</td><td>Your bridged subnet</td><td>Bridged interface, reachable between VMs</td></tr>
       <tr><td>Static IPs</td><td><code>.101</code> controller, <code>.102</code> and <code>.103</code> workers <span style="color:var(--muted)">(example host numbers)</span></td><td>Chosen and set in step 3, so restarts don't break the cluster</td></tr>
       <tr><td>Pod network</td><td><code>10.244.0.0/16</code></td><td>Doesn't overlap the VM network</td></tr>
       <tr><td>NAT interface</td><td><code>10.0.2.15</code></td><td>Same on every VM, so it's ignored</td></tr>
@@ -851,19 +854,43 @@ multipass restart --all</pre></div>
 #!/bin/bash
 # =====================================================================
 # KUBERNETES NODE PREP (run on controller AND every worker)
-# Auto-detects the bridged interface IP (enp0s8) and pins kubelet to it.
+# Auto-detects the bridged interface IP and pins kubelet to it.
 # Usage: bash prep_node.sh            (auto-detect)
-#        bash prep_node.sh 192.168.1.50   (manual IP override)
+#        bash prep_node.sh <static-ip>   (manual IP override)
 # =====================================================================
 
 set -e
 
-NODE_IP="${1:-$(ip -4 -o addr show enp0s8 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)}"
+find_bridged_iface() {
+  if [ -n "${K8S_INTERFACE:-}" ]; then
+    ip link show "$K8S_INTERFACE" > /dev/null 2>&1 || {
+      echo "ERROR: interface $K8S_INTERFACE not found." >&2
+      return 1
+    }
+    printf '%s\n' "$K8S_INTERFACE"
+    return
+  fi
+
+  local default_iface
+  local -a candidates
+  default_iface="$(ip -4 route show default 2>/dev/null | awk 'NR == 1 { for (i=1; i<=NF; i++) if ($i == "dev") { print $(i+1); exit } }')"
+  mapfile -t candidates < <(ip -o -4 addr show scope global 2>/dev/null | awk -v default_iface="$default_iface" '$2 != default_iface { sub(/@.*/, "", $2); print $2 }' | sort -u)
+
+  if [ "${#candidates[@]}" -ne 1 ]; then
+    echo "ERROR: could not uniquely detect the bridged interface. Run 'ip -4 -o addr show scope global' and set K8S_INTERFACE to the bridged interface name." >&2
+    return 1
+  fi
+  printf '%s\n' "${candidates[0]}"
+}
+
+IFACE="$(find_bridged_iface)"
+NODE_IP="${1:-$(ip -4 -o addr show dev "$IFACE" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)}"
 
 if [ -z "$NODE_IP" ]; then
-  echo "ERROR: could not detect an IP on enp0s8. Run 'ip -4 addr' and pass the IP as an argument."
+  echo "ERROR: could not detect an IPv4 address on $IFACE. Run 'ip -4 addr' and pass the IP as an argument."
   exit 1
 fi
+echo ">>> Using node interface: $IFACE"
 echo ">>> Using node IP: $NODE_IP"
 
 echo "=== [1/4] Disabling Swap & Tuning Kernel ==="
@@ -914,23 +941,45 @@ echo "=== NODE PREP COMPLETE (IP: $NODE_IP) ==="
 <script type="text/plain" id="src-static">
 #!/bin/bash
 # =====================================================================
-# SET A STATIC IP ON THE BRIDGED INTERFACE (enp0s8) OF A MULTIPASS VM
+# SET A STATIC IP ON THE BRIDGED INTERFACE OF A MULTIPASS VM
 # Merges with cloud-init's "extra0" netplan entry (same ID) and turns DHCP off.
-# Usage: bash set_static_ip.sh 192.168.137.101
+# Usage: bash set_static_ip.sh <static-ip>
 # =====================================================================
 
 set -e
 
-IP="${1:?Usage: bash set_static_ip.sh <static-ip>   e.g. 192.168.137.101}"
-IFACE="enp0s8"
+IP="${1:?Usage: bash set_static_ip.sh <static-ip>}"
 
-if ! ip link show "$IFACE" > /dev/null 2>&1; then
-  echo "ERROR: interface $IFACE not found. Run 'ip -4 addr' to find the bridged interface."
+find_bridged_iface() {
+  if [ -n "${K8S_INTERFACE:-}" ]; then
+    ip link show "$K8S_INTERFACE" > /dev/null 2>&1 || {
+      echo "ERROR: interface $K8S_INTERFACE not found." >&2
+      return 1
+    }
+    printf '%s\n' "$K8S_INTERFACE"
+    return
+  fi
+
+  local default_iface
+  local -a candidates
+  default_iface="$(ip -4 route show default 2>/dev/null | awk 'NR == 1 { for (i=1; i<=NF; i++) if ($i == "dev") { print $(i+1); exit } }')"
+  mapfile -t candidates < <(ip -o -4 addr show scope global 2>/dev/null | awk -v default_iface="$default_iface" '$2 != default_iface { sub(/@.*/, "", $2); print $2 }' | sort -u)
+
+  if [ "${#candidates[@]}" -ne 1 ]; then
+    echo "ERROR: could not uniquely detect the bridged interface. Run 'ip -4 -o addr show scope global' and set K8S_INTERFACE to the bridged interface name." >&2
+    return 1
+  fi
+  printf '%s\n' "${candidates[0]}"
+}
+
+IFACE="$(find_bridged_iface)"
+if ! ip -4 -o addr show dev "$IFACE" scope global | grep -q .; then
+  echo "ERROR: no global IPv4 address found on $IFACE. Check the bridged network." >&2
   exit 1
 fi
 
-MAC="$(cat /sys/class/net/$IFACE/address)"
-PREFIX="$(ip -4 -o addr show "$IFACE" | awk '{print $4}' | cut -d/ -f2 | head -n1)"
+MAC="$(cat "/sys/class/net/$IFACE/address")"
+PREFIX="$(ip -4 -o addr show dev "$IFACE" | awk '{print $4}' | cut -d/ -f2 | head -n1)"
 PREFIX="${PREFIX:-24}"
 
 echo ">>> Interface : $IFACE"
@@ -956,22 +1005,45 @@ sudo netplan apply
 
 sleep 3
 echo ">>> Result:"
-ip -4 addr show "$IFACE"
+ip -4 addr show dev "$IFACE"
 </script>
 
 <script type="text/plain" id="src-init">
 #!/bin/bash
 # =====================================================================
 # KUBERNETES CONTROLLER INIT (run ONLY on controller-001, AFTER prep_node.sh)
-# Auto-detects the enp0s8 IP and subnet; configures kubeadm and Calico to match.
+# Auto-detects the bridged interface IP and subnet; configures kubeadm and Calico to match.
 # Usage: bash init_controller.sh
 # =====================================================================
 
 set -e
 
-IFACE_CIDR="$(ip -4 -o addr show enp0s8 2>/dev/null | awk '{print $4}' | head -n1)"
+find_bridged_iface() {
+  if [ -n "${K8S_INTERFACE:-}" ]; then
+    ip link show "$K8S_INTERFACE" > /dev/null 2>&1 || {
+      echo "ERROR: interface $K8S_INTERFACE not found." >&2
+      return 1
+    }
+    printf '%s\n' "$K8S_INTERFACE"
+    return
+  fi
+
+  local default_iface
+  local -a candidates
+  default_iface="$(ip -4 route show default 2>/dev/null | awk 'NR == 1 { for (i=1; i<=NF; i++) if ($i == "dev") { print $(i+1); exit } }')"
+  mapfile -t candidates < <(ip -o -4 addr show scope global 2>/dev/null | awk -v default_iface="$default_iface" '$2 != default_iface { sub(/@.*/, "", $2); print $2 }' | sort -u)
+
+  if [ "${#candidates[@]}" -ne 1 ]; then
+    echo "ERROR: could not uniquely detect the bridged interface. Run 'ip -4 -o addr show scope global' and set K8S_INTERFACE to the bridged interface name." >&2
+    return 1
+  fi
+  printf '%s\n' "${candidates[0]}"
+}
+
+IFACE="$(find_bridged_iface)"
+IFACE_CIDR="$(ip -4 -o addr show dev "$IFACE" 2>/dev/null | awk '{print $4}' | head -n1)"
 if [ -z "$IFACE_CIDR" ]; then
-  echo "ERROR: no IP found on enp0s8. Run 'ip -4 addr' to check the interface."
+  echo "ERROR: no IP found on $IFACE. Run 'ip -4 addr' to check the interface."
   exit 1
 fi
 
@@ -980,6 +1052,7 @@ VM_SUBNET="$(python3 -c "import ipaddress,sys; print(ipaddress.ip_interface(sys.
 POD_CIDR="10.244.0.0/16"
 
 echo ">>> Controller IP : $CTRL_IP"
+echo ">>> Interface     : $IFACE"
 echo ">>> VM subnet     : $VM_SUBNET"
 echo ">>> Pod CIDR      : $POD_CIDR"
 

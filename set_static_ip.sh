@@ -32,13 +32,13 @@ find_bridged_iface() {
 }
 
 IFACE="$(find_bridged_iface)"
-if ! ip -4 -o addr show "$IFACE" scope global | grep -q .; then
+if ! ip -4 -o addr show dev "$IFACE" scope global | grep -q .; then
   echo "ERROR: no global IPv4 address found on $IFACE. Check the bridged network." >&2
   exit 1
 fi
 
 MAC="$(cat "/sys/class/net/$IFACE/address")"
-PREFIX="$(ip -4 -o addr show "$IFACE" | awk '{print $4}' | cut -d/ -f2 | head -n1)"
+PREFIX="$(ip -4 -o addr show dev "$IFACE" | awk '{print $4}' | cut -d/ -f2 | head -n1)"
 PREFIX="${PREFIX:-24}"
 
 echo ">>> Interface : $IFACE"
@@ -62,4 +62,4 @@ sudo netplan apply
 
 sleep 3
 echo ">>> Result:"
-ip -4 addr show "$IFACE"
+ip -4 addr show dev "$IFACE"
