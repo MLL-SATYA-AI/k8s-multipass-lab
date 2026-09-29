@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build a 3-node Kubernetes cluster on Multipass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#10243a; --muted:#4b5f75; --paper:#eef3f9; --surface:#ffffff; --line:#d5dfeb;
+  --sea:#2f65d9; --sea-soft:#dfe9fc; --kelp:#12805f; --kelp-soft:#d9f2ea;
+  --buoy:#a35d00; --buoy-soft:#fdeccd; --code-bg:#0d1b2e; --code-ink:#dbe7f7; --code-dim:#7f95b0;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",Consolas,"Courier New",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ink:#e6eefb; --muted:#9db0c7; --paper:#0b1523; --surface:#12233a; --line:#24384f;
+    --sea:#7ba3ff; --sea-soft:#17325f; --kelp:#3ecf9f; --kelp-soft:#0f3a30;
+    --buoy:#f0b455; --buoy-soft:#3a2a0c; --code-bg:#06101d; --code-ink:#dbe7f7; --code-dim:#6f86a3;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:20px}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.65}
+:focus-visible{outline:3px solid var(--sea);outline-offset:2px;border-radius:6px}
+svg.i{width:1.15em;height:1.15em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* layout */
+.shell{display:grid;grid-template-columns:270px minmax(0,1fr);gap:0;max-width:1180px;margin:0 auto}
+aside{position:sticky;top:0;align-self:start;height:100vh;padding:28px 20px 24px 24px;overflow-y:auto;border-right:1px solid var(--line)}
+main{padding:36px 40px 80px;min-width:0}
+.brand{font-family:var(--display);font-weight:700;font-size:1.05rem;line-height:1.25;margin:0 0 4px}
+.brand-sub{color:var(--muted);font-size:.85rem;margin:0 0 22px}
+nav ol{list-style:none;margin:0;padding:0;counter-reset:n}
+nav li{counter-increment:n}
+nav a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:.92rem;font-weight:500}
+nav a::before{content:counter(n);flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-size:.75rem;font-family:var(--mono)}
+nav a:hover{background:var(--sea-soft);color:var(--ink)}
+nav a.active{background:var(--sea-soft);color:var(--ink)}
+nav a.active::before{border-color:var(--sea);color:var(--sea)}
+nav a.done::before{content:"✓";background:var(--kelp);border-color:var(--kelp);color:#fff;font-family:var(--body)}
+nav .extra{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+nav .extra a::before{content:"";border:0;width:22px}
+.progress{margin:22px 0 0;font-size:.85rem;color:var(--muted)}
+.bar{height:6px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:6px}
+.bar span{display:block;height:100%;width:0;background:var(--kelp);transition:width .3s}
+.linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;font:inherit;font-size:.8rem;padding:6px 0}
+
+/* hero */
+.hero h1{font-family:var(--display);font-weight:800;font-size:clamp(2rem,4.4vw,3.2rem);line-height:1.05;letter-spacing:-.02em;margin:0 0 14px;max-width:16ch}
+.hero p.lede{font-size:1.1rem;color:var(--muted);max-width:60ch;margin:0 0 26px}
+.figure{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 8px}
+.figure svg{display:block;width:100%;height:auto}
+.figcap{font-size:.85rem;color:var(--muted);margin:8px 4px 0}
+.dl-row{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 0}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--sea);color:#fff;border:0;border-radius:9px;padding:10px 16px;font:600 .92rem var(--body);cursor:pointer}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.ghost:hover{border-color:var(--sea);filter:none}
+
+/* prereq strip */
+.prereq{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:34px 0 8px}
+.prereq div{border-left:3px solid var(--sea);padding:2px 0 2px 14px}
+.prereq strong{display:block;font-size:.95rem}
+.prereq span{color:var(--muted);font-size:.9rem}
+
+/* steps */
+.step{margin-top:56px}
+.step-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.tile{width:46px;height:46px;border-radius:12px;background:var(--sea-soft);color:var(--sea);display:grid;place-items:center}
+.tile svg{width:24px;height:24px}
+.step h2{font-family:var(--display);font-size:1.6rem;font-weight:700;letter-spacing:-.01em;margin:0;line-height:1.15}
+.where{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:600;padding:3px 10px;border-radius:99px;background:var(--kelp-soft);color:var(--kelp)}
+.where.ctrl{background:var(--sea-soft);color:var(--sea)}
+.where.all{background:var(--buoy-soft);color:var(--buoy)}
+.step > p{max-width:64ch;color:var(--muted);margin:8px 0 14px}
+.step h3{font-size:1rem;margin:22px 0 8px}
+
+.code{background:var(--code-bg);border-radius:12px;margin:12px 0;overflow:hidden}
+.code-top{display:flex;justify-content:space-between;align-items:center;padding:7px 8px 7px 14px;color:var(--code-dim);font:500 .78rem var(--mono);border-bottom:1px solid rgba(255,255,255,.07)}
+.copy{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);color:var(--code-ink);border:0;border-radius:7px;padding:5px 10px;font:500 .78rem var(--body);cursor:pointer}
+.copy:hover{background:rgba(255,255,255,.16)}
+.copy.ok{background:var(--kelp);color:#fff}
+.code pre{margin:0;padding:14px 16px;overflow-x:auto;color:var(--code-ink);font:400 .86rem/1.7 var(--mono)}
+.code .c{color:var(--code-dim)}
+.code.out{background:transparent;border:1.5px dashed var(--line)}
+.code.out .code-top{color:var(--muted);border-color:var(--line)}
+.code.out pre{color:var(--ink)}
+
+.note{display:flex;gap:12px;padding:12px 16px;border-radius:10px;margin:14px 0;background:var(--sea-soft);font-size:.93rem}
+.note svg{margin-top:4px;color:var(--sea)}
+.note.warn{background:var(--buoy-soft)} .note.warn svg{color:var(--buoy)}
+.note.good{background:var(--kelp-soft)} .note.good svg{color:var(--kelp)}
+.note p{margin:0} .note code{font-size:.85em}
+code{font-family:var(--mono);font-size:.88em;background:var(--sea-soft);padding:1px 6px;border-radius:5px}
+
+.done-row{margin-top:18px}
+.done-row label{display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-weight:500;font-size:.95rem;padding:8px 14px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface)}
+.done-row input{width:18px;height:18px;accent-color:var(--kelp)}
+.done-row label:has(input:checked){border-color:var(--kelp);background:var(--kelp-soft);color:var(--kelp)}
+
+table{border-collapse:collapse;width:100%;font-size:.92rem;background:var(--surface);border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line)}
+th{background:var(--sea-soft);font-weight:600}
+tr:last-child td{border-bottom:0}
+.tablewrap{overflow-x:auto}
+
+details{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:10px 0;padding:0 16px}
+summary{cursor:pointer;padding:13px 0;font-weight:600;list-style:none;display:flex;align-items:center;gap:10px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";margin-left:auto;font-size:1.3rem;color:var(--muted)}
+details[open] summary::after{content:"–"}
+details[open]{padding-bottom:12px}
+details p{margin:6px 0;color:var(--muted)}
+
+footer{margin-top:70px;color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);padding-top:16px}
+
+/* mobile */
+.topbar{display:none}
+@media (max-width:900px){
+  .shell{display:block}
+  aside{display:none}
+  .topbar{display:block;position:sticky;top:0;z-index:5;background:var(--paper);padding:10px 18px;border-bottom:1px solid var(--line);font-size:.85rem}
+  .topbar .bar{margin-top:6px}
+  main{padding:26px 18px 70px}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.bar span{transition:none}}
+</style>
+</head>
+<body>
+
+<!-- icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><line x1="6" y1="7" x2="6.01" y2="7"/><line x1="6" y1="17" x2="6.01" y2="17"/></symbol>
+  <symbol id="i-network" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="10 13 8 15 10 17"/><polyline points="14 13 16 15 14 17"/></symbol>
+  <symbol id="i-package" viewBox="0 0 24 24"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+  <symbol id="i-buoy" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
+</svg>
+
+<div class="topbar">
+  <span id="topProgress">0 of 10 steps done</span>
+  <div class="bar"><span id="topBar"></span></div>
+</div>
+
+<div class="shell">
+<aside>
+  <p class="brand">3-node Kubernetes on Multipass</p>
+  <p class="brand-sub">1 controller, 2 workers, Windows host</p>
+  <nav aria-label="Steps">
+    <div class="extra" style="margin-top:0;padding-top:0;border-top:0;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--line)">
+      <a href="#s0">Install prerequisites</a>
+    </div>
+    <ol>
+      <li><a href="#s1">Create the VMs</a></li>
+      <li><a href="#s2">Check the network</a></li>
+      <li><a href="#s3">Set static IPs</a></li>
+      <li><a href="#s4">Copy the scripts</a></li>
+      <li><a href="#s5">Prep all three nodes</a></li>
+      <li><a href="#s6">Start the controller</a></li>
+      <li><a href="#s7">Join the workers</a></li>
+      <li><a href="#s8">Verify and test</a></li>
+      <li><a href="#s9">Use kubectl from Windows</a></li>
+      <li><a href="#s10">Snapshot the cluster</a></li>
+    </ol>
+    <div class="extra">
+      <a href="#fix">Troubleshooting</a>
+      <a href="#reset">Reset and clean up</a>
+    </div>
+  </nav>
+  <div class="progress"><span id="sideProgress">0 of 10 steps done</span><div class="bar"><span id="sideBar"></span></div></div>
+  <button class="linkbtn" id="resetProgress" type="button">Clear progress</button>
+</aside>
+
+<main>
+<header class="hero">
+  <h1>Build a 3-node Kubernetes cluster on Multipass</h1>
+  <p class="lede">With the VirtualBox driver, every VM Multipass creates gets the same NAT address, <code>10.0.2.15</code>, so by default the nodes can't reach each other. This guide fixes that: it walks through installing VirtualBox and Multipass, gives each VM a second, bridged network, pins every VM to a static IP so the cluster survives restarts, and builds the cluster on that.</p>
+
+  <figure class="figure">
+    <svg viewBox="0 0 900 440" role="img" aria-labelledby="archT archD">
+      <title id="archT">Cluster network layout</title>
+      <desc id="archD">A Windows PC with three Multipass VMs bridged to the Ethernet network. Each VM also has a NAT interface that is ignored. Calico connects pods across the nodes.</desc>
+      <rect x="10" y="10" width="880" height="420" rx="16" style="fill:var(--paper);stroke:var(--line);stroke-width:1.5"/>
+      <text x="30" y="40" style="fill:var(--muted);font:600 14px var(--body)">Windows PC (Multipass + VirtualBox)</text>
+
+      <!-- bridge bus -->
+      <rect x="40" y="70" width="820" height="46" rx="10" style="fill:var(--sea-soft);stroke:var(--sea);stroke-width:1.5"/>
+      <text x="450" y="98" text-anchor="middle" style="fill:var(--sea);font:600 15px var(--body)">Bridged to Ethernet: your subnet</text>
+      <text x="450" y="112" text-anchor="middle" style="fill:var(--sea);font:400 11px var(--body);opacity:.0">.</text>
+
+      <!-- drops -->
+      <g style="stroke:var(--sea);stroke-width:2.5">
+        <line x1="170" y1="116" x2="170" y2="160"/><line x1="450" y1="116" x2="450" y2="160"/><line x1="730" y1="116" x2="730" y2="160"/>
+      </g>
+      <g style="fill:var(--sea)"><circle cx="170" cy="116" r="5"/><circle cx="450" cy="116" r="5"/><circle cx="730" cy="116" r="5"/></g>
+      <g style="fill:var(--muted);font:500 12px var(--mono)" text-anchor="middle">
+        <text x="170" y="145">enp0s8</text><text x="450" y="145">enp0s8</text><text x="730" y="145">enp0s8</text>
+      </g>
+
+      <!-- VMs -->
+      <g>
+        <rect x="60" y="160" width="220" height="182" rx="12" style="fill:var(--surface);stroke:var(--sea);stroke-width:2"/>
+        <use href="#i-server" x="157" y="174" width="26" height="26" style="fill:none;stroke:var(--sea);stroke-width:2;stroke-linecap:round;stroke-linejoin:round"/>
+        <text x="170" y="222" text-anchor="middle" style="fill:var(--ink);font:700 16px var(--display)">controller-001</text>
+        <text x="170" y="244" text-anchor="middle" style="fill:var(--sea);font:500 13px var(--mono)">static IP (step 3)</text>
+        <text x="170" y="272" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">API server · etcd</text>
+        <text x="170" y="290" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">scheduler · controller-manager</text>
+        <text x="170" y="324" text-anchor="middle" style="fill:var(--muted);font:400 11px var(--mono)">enp0s3 10.0.2.15 (ignored)</text>
+
+        <rect x="340" y="160" width="220" height="182" rx="12" style="fill:var(--surface);stroke:var(--kelp);stroke-width:2"/>
+        <use href="#i-package" x="437" y="174" width="26" height="26" style="fill:none;stroke:var(--kelp);stroke-width:2;stroke-linecap:round;stroke-linejoin:round"/>
+        <text x="450" y="222" text-anchor="middle" style="fill:var(--ink);font:700 16px var(--display)">worker-node1</text>
+        <text x="450" y="244" text-anchor="middle" style="fill:var(--kelp);font:500 13px var(--mono)">static IP (step 3)</text>
+        <text x="450" y="272" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">kubelet · containerd</text>
+        <text x="450" y="290" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">runs your pods</text>
+        <text x="450" y="324" text-anchor="middle" style="fill:var(--muted);font:400 11px var(--mono)">enp0s3 10.0.2.15 (ignored)</text>
+
+        <rect x="620" y="160" width="220" height="182" rx="12" style="fill:var(--surface);stroke:var(--kelp);stroke-width:2"/>
+        <use href="#i-package" x="717" y="174" width="26" height="26" style="fill:none;stroke:var(--kelp);stroke-width:2;stroke-linecap:round;stroke-linejoin:round"/>
+        <text x="730" y="222" text-anchor="middle" style="fill:var(--ink);font:700 16px var(--display)">worker-node2</text>
+        <text x="730" y="244" text-anchor="middle" style="fill:var(--kelp);font:500 13px var(--mono)">static IP (step 3)</text>
+        <text x="730" y="272" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">kubelet · containerd</text>
+        <text x="730" y="290" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">runs your pods</text>
+        <text x="730" y="324" text-anchor="middle" style="fill:var(--muted);font:400 11px var(--mono)">enp0s3 10.0.2.15 (ignored)</text>
+      </g>
+
+      <!-- calico overlay -->
+      <path d="M170 342 V367 H730 V342" style="fill:none;stroke:var(--buoy);stroke-width:2.5;stroke-dasharray:7 6"/>
+      <path d="M450 342 V367" style="fill:none;stroke:var(--buoy);stroke-width:2.5;stroke-dasharray:7 6"/>
+      <rect x="290" y="377" width="320" height="30" rx="15" style="fill:var(--buoy-soft);stroke:var(--buoy);stroke-width:1.5"/>
+      <text x="450" y="397" text-anchor="middle" style="fill:var(--buoy);font:600 13px var(--body)">Calico pod network: 10.244.0.0/16</text>
+    </svg>
+    <figcaption class="figcap">Each VM's bridged address depends on your own network — you'll work it out and set it in step 3.</figcaption>
+  </figure>
+
+  <div class="dl-row">
+    <button class="btn" type="button" data-dl="prep_node.sh" data-src="src-prep"><svg class="i"><use href="#i-download"/></svg>Download prep_node.sh</button>
+    <button class="btn" type="button" data-dl="init_controller.sh" data-src="src-init"><svg class="i"><use href="#i-download"/></svg>Download init_controller.sh</button>
+    <button class="btn" type="button" data-dl="set_static_ip.sh" data-src="src-static"><svg class="i"><use href="#i-download"/></svg>Download set_static_ip.sh</button>
+  </div>
+</header>
+
+<div class="prereq">
+  <div><strong>Windows PC with Multipass</strong><span>Using the VirtualBox driver.</span></div>
+  <div><strong>Wired Ethernet adapter</strong><span>Named <code>Ethernet</code> in <code>multipass networks</code>.</span></div>
+  <div><strong>About 6 GB free RAM</strong><span>2 GB for each of the 3 VMs.</span></div>
+  <div><strong>Three scripts saved</strong><span>Save all three in the root of your cloned Git repository.</span></div>
+</div>
+
+<!-- STEP 0: PREREQUISITES -->
+<section class="step" id="s0">
+  <div class="step-head">
+    <div class="tile"><svg class="i"><use href="#i-download"/></svg></div>
+    <h2>Install prerequisites</h2>
+    <span class="where"><svg class="i"><use href="#i-monitor"/></svg>Windows host</span>
+  </div>
+  <p>Three tools go on the Windows PC before step 1. Install them in this order &mdash; VirtualBox has to be there first, because Multipass's installer looks for it and offers it as a driver.</p>
+
+  <h3>1. VirtualBox</h3>
+  <p>Multipass uses VirtualBox as its hypervisor on Windows. Download the Windows installer and run it, accepting the prompts to install the network adapter drivers &mdash; those are what let the bridged network in step 1 work.</p>
+  <div class="dl-row">
+    <a class="btn" href="https://www.virtualbox.org/wiki/Downloads" target="_blank" rel="noopener"><svg class="i"><use href="#i-download"/></svg>virtualbox.org/wiki/Downloads</a>
+  </div>
+
+  <h3>2. Multipass</h3>
+  <p>Download and run the Windows installer. It should detect VirtualBox and set it as the default driver automatically.</p>
+  <div class="dl-row">
+    <a class="btn" href="https://canonical.com/multipass/install" target="_blank" rel="noopener"><svg class="i"><use href="#i-download"/></svg>canonical.com/multipass/install</a>
+  </div>
+  <div class="code"><div class="code-top"><span>PowerShell &mdash; confirm the driver</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass get local.driver
+multipass version</pre></div>
+  <div class="note"><svg class="i"><use href="#i-info"/></svg><p>The first command should print <code>virtualbox</code>. If it prints <code>hyperv</code> instead, switch it with <code>multipass set local.driver=virtualbox</code> (only works before any VM has been created).</p></div>
+
+  <h3>3. kubectl</h3>
+  <p>Not needed until step 9, but it's a one-line install, so get it out of the way now.</p>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>winget install -e --id Kubernetes.kubectl
+kubectl version --client</pre></div>
+  <div class="note"><svg class="i"><use href="#i-info"/></svg><p>Open a new PowerShell window afterwards so <code>kubectl</code> is on your PATH. Step 9 covers pointing it at the cluster once it exists.</p></div>
+</section>
+
+<!-- STEP 1 -->
+<section class="step" id="s1" data-step="1">
+  <div class="step-head">
+    <div class="tile"><svg class="i"><use href="#i-server"/></svg></div>
+    <h2>Create the VMs</h2>
+    <span class="where"><svg class="i"><use href="#i-monitor"/></svg>PowerShell on Windows</span>
+  </div>
+  <p>Launch one controller and two workers. The <code>--network Ethernet</code> flag adds the second, bridged interface, and it can only be set when the VM is created. Use lowercase names because Kubernetes node names must be lowercase.</p>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass launch --name controller-001 --cpus 2 --memory 2G --disk 20G --network Ethernet
+multipass launch --name worker-node1 --cpus 2 --memory 2G --disk 20G --network Ethernet
+multipass launch --name worker-node2 --cpus 2 --memory 2G --disk 20G --network Ethernet
+multipass list</pre></div>
+  <div class="note"><svg class="i"><use href="#i-info"/></svg><p>Accept any Windows prompt about bridging. Afterwards, <code>multipass list</code> should show two IPv4 addresses for each VM.</p></div>
+  <div class="done-row"><label><input type="checkbox"> Step 1 done</label></div>
+</section>
+
+<!-- STEP 2 -->
+<section class="step" id="s2" data-step="2">
+  <div class="step-head">
+    <div class="tile"><svg class="i"><use href="#i-network"/></svg></div>
+    <h2>Check the network</h2>
+    <span class="where"><svg class="i"><use href="#i-monitor"/></svg>PowerShell on Windows</span>
+  </div>
+  <p>Find the controller's real address on <code>enp0s8</code>, then ping it from both workers. Kubernetes can't work until this succeeds. These addresses come from DHCP and can change, so the next step makes them permanent.</p>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass exec controller-001 -- ip -4 addr show enp0s8
+
+<span class="c"># use the controller address printed above</span>
+multipass exec worker-node1 -- ping -c 2 &lt;controller-IP&gt;
+multipass exec worker-node2 -- ping -c 2 &lt;controller-IP&gt;</pre></div>
+  <div class="code out"><div class="code-top"><span>What you should see</span></div>
+<pre>2 packets transmitted, 2 received, 0% packet loss</pre></div>
+  <div class="note warn"><svg class="i"><use href="#i-alert"/></svg><p>Stop here if a ping fails. See <a href="#fix">Troubleshooting</a>.</p></div>
+  <div class="done-row"><label><input type="checkbox"> Step 2 done</label></div>
+</section>
+
+<!-- STEP 3 (static IPs) -->
+<section class="step" id="s3" data-step="3">
+  <div class="step-head">
+    <div class="tile"><svg class="i"><use href="#i-lock"/></svg></div>
+    <h2>Set static IPs</h2>
+    <span class="where all"><svg class="i"><use href="#i-layers"/></svg>All 3 VMs</span>
+  </div>
+  <p>Windows hands out the VMs' bridged addresses by DHCP, and they can change after a restart. Kubernetes bakes the controller's address into its certificates and config, so a new address breaks the whole cluster. Pin each VM to a fixed address before you build anything.</p>
+
+  <figure class="figure">
+    <svg viewBox="0 0 760 210" role="img" aria-labelledby="stT">
+      <title id="stT">DHCP address changes versus static addresses (example subnet)</title>
+      <rect x="6" y="6" width="748" height="198" rx="14" style="fill:var(--paper);stroke:var(--line);stroke-width:1.5"/>
+      <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--ink)"/></marker></defs>
+
+      <text x="30" y="36" style="fill:var(--buoy);font:700 14px var(--display)">With DHCP</text>
+      <rect x="30" y="52" width="150" height="56" rx="10" style="fill:var(--surface);stroke:var(--line);stroke-width:1.5"/>
+      <text x="105" y="76" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">before restart</text>
+      <text x="105" y="96" text-anchor="middle" style="fill:var(--ink);font:500 13px var(--mono)">192.168.137.63</text>
+      <line x1="184" y1="80" x2="216" y2="80" marker-end="url(#ar3)" style="stroke:var(--ink);stroke-width:1.8"/>
+      <rect x="220" y="52" width="150" height="56" rx="10" style="fill:var(--buoy-soft);stroke:var(--buoy);stroke-width:1.5"/>
+      <text x="295" y="76" text-anchor="middle" style="fill:var(--buoy);font:400 12px var(--body)">after restart</text>
+      <text x="295" y="96" text-anchor="middle" style="fill:var(--ink);font:500 13px var(--mono)">192.168.137.22</text>
+      <text x="200" y="140" text-anchor="middle" style="fill:var(--buoy);font:600 13px var(--body)">Cluster breaks: the certificates still say .63</text>
+
+      <line x1="390" y1="30" x2="390" y2="186" style="stroke:var(--line);stroke-width:1.5;stroke-dasharray:4 5"/>
+
+      <text x="416" y="36" style="fill:var(--kelp);font:700 14px var(--display)">With a static IP</text>
+      <rect x="416" y="52" width="150" height="56" rx="10" style="fill:var(--surface);stroke:var(--line);stroke-width:1.5"/>
+      <text x="491" y="76" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">before restart</text>
+      <text x="491" y="96" text-anchor="middle" style="fill:var(--ink);font:500 13px var(--mono)">192.168.137.101</text>
+      <line x1="570" y1="80" x2="602" y2="80" marker-end="url(#ar3)" style="stroke:var(--ink);stroke-width:1.8"/>
+      <rect x="606" y="52" width="140" height="56" rx="10" style="fill:var(--kelp-soft);stroke:var(--kelp);stroke-width:1.5"/>
+      <text x="676" y="76" text-anchor="middle" style="fill:var(--kelp);font:400 12px var(--body)">after restart</text>
+      <text x="676" y="96" text-anchor="middle" style="fill:var(--ink);font:500 13px var(--mono)">192.168.137.101</text>
+      <text x="580" y="140" text-anchor="middle" style="fill:var(--kelp);font:600 13px var(--body)">Same address, cluster keeps working</text>
+    </svg>
+  </figure>
+
+  <h3>Work out your own subnet</h3>
+  <p>There's no fixed subnet for this step &mdash; it depends on how your PC or router hands out addresses on the bridged network, so don't assume <code>192.168.137.x</code>. Use the address step 2 printed for <code>enp0s8</code> on the controller: keep everything except the last number. For example, if step 2 showed <code>192.168.137.63/24</code>, your subnet is <code>192.168.137.0/24</code> and you'll pick host numbers like <code>.101</code>&ndash;<code>.103</code> inside it. If it showed <code>192.168.1.40/24</code>, your subnet is <code>192.168.1.0/24</code> instead, and so on &mdash; common ranges are <code>192.168.x.0/24</code>, <code>10.x.x.0/24</code> or <code>172.16&ndash;31.x.0/24</code>, all with Windows Internet Connection Sharing supplying <code>/24</code>.</p>
+  <div class="note"><svg class="i"><use href="#i-info"/></svg><p>You're choosing where each VM lives on <em>your</em> network, so three addresses that work on one machine may already be taken on another. Skip the specific numbers below and pick your own free addresses in your subnet.</p></div>
+
+  <h3>Pick three free addresses</h3>
+  <p>Fill in your subnet's first three octets once, then pick three host numbers outside your router's DHCP range (check your router settings, or stay above <code>.100</code> as a rule of thumb).</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>VM</th><th>Static IP</th></tr></thead>
+    <tbody>
+      <tr><td>controller-001</td><td><code>&lt;your-subnet&gt;.101</code> <span style="color:var(--muted)">e.g. 192.168.137.101</span></td></tr>
+      <tr><td>worker-node1</td><td><code>&lt;your-subnet&gt;.102</code> <span style="color:var(--muted)">e.g. 192.168.137.102</span></td></tr>
+      <tr><td>worker-node2</td><td><code>&lt;your-subnet&gt;.103</code> <span style="color:var(--muted)">e.g. 192.168.137.103</span></td></tr>
+    </tbody>
+  </table></div>
+  <p>Check the addresses you picked aren't already taken &mdash; replace the example with your own three addresses:</p>
+  <div class="code"><div class="code-top"><span>PowerShell &mdash; replace with your addresses</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>ping &lt;your-subnet&gt;.101
+ping &lt;your-subnet&gt;.102
+ping &lt;your-subnet&gt;.103</pre></div>
+  <p>Timeouts or "destination host unreachable" mean the address is free. The rest of this guide uses <code>192.168.137.101/102/103</code> as an example &mdash; wherever you see those addresses in later steps, substitute the three you picked here.</p>
+
+  <h3>Copy and run the script</h3>
+  <p>Swap in the three addresses you picked above &mdash; the ones below (<code>.101</code>/<code>.102</code>/<code>.103</code> on <code>192.168.137.x</code>) are only an example.</p>
+  <div class="code"><div class="code-top"><span>PowerShell &mdash; example addresses, use your own</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass transfer .\set_static_ip.sh controller-001:/home/ubuntu/
+multipass transfer .\set_static_ip.sh worker-node1:/home/ubuntu/
+multipass transfer .\set_static_ip.sh worker-node2:/home/ubuntu/
+
+multipass exec controller-001 -- bash set_static_ip.sh 192.168.137.101
+multipass exec worker-node1 -- bash set_static_ip.sh 192.168.137.102
+multipass exec worker-node2 -- bash set_static_ip.sh 192.168.137.103</pre></div>
+  <div class="code out"><div class="code-top"><span>Each run ends with only the static address on enp0s8</span></div>
+<pre>&gt;&gt;&gt; Static IP : 192.168.137.101/24
+&gt;&gt;&gt; Result:
+3: enp0s8: ...
+    inet 192.168.137.101/24 ... scope global enp0s8</pre></div>
+  <div class="note"><svg class="i"><use href="#i-info"/></svg><p>If you saved or edited the script on Windows and bash complains about <code>\r</code>, strip the Windows line endings first: <code>multipass exec &lt;vm&gt; -- sed -i 's/\r$//' set_static_ip.sh</code>. The download button on this page already uses the right line endings.</p></div>
+
+  <h3>Restart and confirm the addresses stick</h3>
+  <div class="code"><div class="code-top"><span>PowerShell &mdash; example address, use your controller's</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass restart --all
+multipass list
+multipass exec worker-node1 -- ping -c 2 192.168.137.101
+multipass exec worker-node2 -- ping -c 2 192.168.137.101</pre></div>
+  <div class="note warn"><svg class="i"><use href="#i-alert"/></svg><p>Don't go further until <code>multipass list</code> shows the three addresses you picked (<code>.101</code>, <code>.102</code>, <code>.103</code> in the example above) after the restart, and both pings succeed. If an old DHCP address is still listed on <code>enp0s8</code>, restart that VM once more.</p></div>
+  <div class="note"><svg class="i"><use href="#i-info"/></svg><p><b>Why this works:</b> Multipass defines the bridged interface in <code>/etc/netplan/50-cloud-init.yaml</code> under the ID <code>extra0</code>, matched by MAC address. The script adds a second file with the same ID and DHCP turned off, and netplan merges the two, so cloud-init's file stays untouched. Windows shares this subnet through Internet Connection Sharing and doesn't know about your static addresses, so avoid addresses another device already uses.</p></div>
+  <div class="done-row"><label><input type="checkbox"> Step 3 done</label></div>
+</section>
+
+<!-- STEP 3 (scripts) -->
+<section class="step" id="s4" data-step="4">
+  <div class="step-head">
+    <div class="tile"><svg class="i"><use href="#i-file"/></svg></div>
+    <h2>Copy the scripts</h2>
+    <span class="where"><svg class="i"><use href="#i-monitor"/></svg>PowerShell on Windows</span>
+  </div>
+  <p>From the root of your cloned Git repository, copy <code>prep_node.sh</code> to all three VMs and <code>init_controller.sh</code> to the controller only.</p>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass transfer .\prep_node.sh controller-001:/home/ubuntu/
+multipass transfer .\prep_node.sh worker-node1:/home/ubuntu/
+multipass transfer .\prep_node.sh worker-node2:/home/ubuntu/
+multipass transfer .\init_controller.sh controller-001:/home/ubuntu/</pre></div>
+  <div class="done-row"><label><input type="checkbox"> Step 4 done</label></div>
+</section>
+
+<!-- STEP 4 -->
+<section class="step" id="s5" data-step="5">
+  <div class="step-head">
+    <div class="tile"><svg class="i"><use href="#i-package"/></svg></div>
+    <h2>Prep all three nodes</h2>
+    <span class="where all"><svg class="i"><use href="#i-layers"/></svg>All 3 VMs</span>
+  </div>
+  <p>The script turns off swap, sets the kernel network options, installs containerd and the Kubernetes tools (v1.32), and tells kubelet to use the <code>enp0s8</code> address instead of <code>10.0.2.15</code>.</p>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass exec controller-001 -- bash prep_node.sh
+multipass exec worker-node1 -- bash prep_node.sh
+multipass exec worker-node2 -- bash prep_node.sh</pre></div>
+  <div class="code out"><div class="code-top"><span>Check the first and last lines of each run</span></div>
+<pre>&gt;&gt;&gt; Using node IP: 192.168.137.101
+...
+=== NODE PREP COMPLETE (IP: 192.168.137.101) ===</pre></div>
+  <div class="note warn"><svg class="i"><use href="#i-alert"/></svg><p>The node IP must be the static <code>enp0s8</code> address you set in step 3 for that VM (<code>.101</code>/<code>.102</code>/<code>.103</code> in this guide's example), never <code>10.0.2.15</code>.</p></div>
+  <div class="done-row"><label><input type="checkbox"> Step 5 done</label></div>
+</section>
+
+<!-- STEP 5 -->
+<section class="step" id="s6" data-step="6">
+  <div class="step-head">
+    <div class="tile"><svg class="i"><use href="#i-zap"/></svg></div>
+    <h2>Start the controller</h2>
+    <span class="where ctrl"><svg class="i"><use href="#i-server"/></svg>controller-001</span>
+  </div>
+  <p>This runs <code>kubeadm init</code> with the real IP, sets up <code>kubectl</code>, and installs Calico bound to the right subnet. It ends by printing the join command for the workers.</p>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass exec controller-001 -- bash init_controller.sh</pre></div>
+
+  <figure class="figure">
+    <svg viewBox="0 0 760 250" role="img" aria-labelledby="cpT">
+      <title id="cpT">What kubeadm init starts on the controller</title>
+      <rect x="6" y="6" width="748" height="238" rx="14" style="fill:var(--paper);stroke:var(--line);stroke-width:1.5"/>
+      <text x="26" y="34" style="fill:var(--ink);font:700 15px var(--display)">controller-001: what starts</text>
+      <g style="font:600 13px var(--body)" text-anchor="middle">
+        <rect x="26" y="52" width="210" height="62" rx="10" style="fill:var(--sea-soft);stroke:var(--sea);stroke-width:1.5"/>
+        <text x="131" y="79" style="fill:var(--sea)">kube-apiserver</text>
+        <text x="131" y="99" style="fill:var(--muted);font:400 12px var(--mono)">:6443, the front door</text>
+        <rect x="275" y="52" width="210" height="62" rx="10" style="fill:var(--sea-soft);stroke:var(--sea);stroke-width:1.5"/>
+        <text x="380" y="79" style="fill:var(--sea)">etcd</text>
+        <text x="380" y="99" style="fill:var(--muted);font:400 12px var(--body)">stores cluster state</text>
+        <rect x="524" y="52" width="210" height="62" rx="10" style="fill:var(--sea-soft);stroke:var(--sea);stroke-width:1.5"/>
+        <text x="629" y="79" style="fill:var(--sea)">scheduler</text>
+        <text x="629" y="99" style="fill:var(--muted);font:400 12px var(--body)">picks a node for each pod</text>
+
+        <rect x="26" y="134" width="210" height="62" rx="10" style="fill:var(--sea-soft);stroke:var(--sea);stroke-width:1.5"/>
+        <text x="131" y="161" style="fill:var(--sea)">controller-manager</text>
+        <text x="131" y="181" style="fill:var(--muted);font:400 12px var(--body)">keeps actual = desired</text>
+        <rect x="275" y="134" width="210" height="62" rx="10" style="fill:var(--kelp-soft);stroke:var(--kelp);stroke-width:1.5"/>
+        <text x="380" y="161" style="fill:var(--kelp)">kubelet + containerd</text>
+        <text x="380" y="181" style="fill:var(--muted);font:400 12px var(--body)">run the containers</text>
+        <rect x="524" y="134" width="210" height="62" rx="10" style="fill:var(--buoy-soft);stroke:var(--buoy);stroke-width:1.5"/>
+        <text x="629" y="161" style="fill:var(--buoy)">Calico</text>
+        <text x="629" y="181" style="fill:var(--muted);font:400 12px var(--body)">pod networking</text>
+      </g>
+      <text x="26" y="228" style="fill:var(--muted);font:400 12px var(--body)">The join command at the end of the script carries a token and the CA hash workers use to trust this API server.</text>
+    </svg>
+  </figure>
+
+  <div class="code out"><div class="code-top"><span>Copy the last line of the output &mdash; the IP is your controller's</span></div>
+<pre>kubeadm join 192.168.137.101:6443 --token &lt;token&gt; \
+    --discovery-token-ca-cert-hash sha256:&lt;hash&gt;</pre></div>
+  <div class="note"><svg class="i"><use href="#i-info"/></svg><p>The script reads the controller's own <code>enp0s8</code> address, so the IP in your output will already be the one you set in step 3 &mdash; <code>192.168.137.101</code> here is just this guide's example.</p></div>
+  <div class="note"><svg class="i"><use href="#i-info"/></svg><p>Lost the command, or the token expired (24 hours)? Print a new one with <code>multipass exec controller-001 -- sudo kubeadm token create --print-join-command</code>.</p></div>
+  <div class="done-row"><label><input type="checkbox"> Step 6 done</label></div>
+</section>
+
+<!-- STEP 6 -->
+<section class="step" id="s7" data-step="7">
+  <div class="step-head">
+    <div class="tile"><svg class="i"><use href="#i-link"/></svg></div>
+    <h2>Join the workers</h2>
+    <span class="where"><svg class="i"><use href="#i-server"/></svg>worker-node1 and worker-node2</span>
+  </div>
+  <p>Run the join command on each worker with <code>sudo</code>, using the full command step 6 printed &mdash; it already carries your controller's real IP, not the example below.</p>
+  <div class="code"><div class="code-top"><span>PowerShell &mdash; example, use step 6's actual output</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass exec worker-node1 -- sudo kubeadm join 192.168.137.101:6443 --token &lt;token&gt; --discovery-token-ca-cert-hash sha256:&lt;hash&gt;
+
+multipass exec worker-node2 -- sudo kubeadm join 192.168.137.101:6443 --token &lt;token&gt; --discovery-token-ca-cert-hash sha256:&lt;hash&gt;</pre></div>
+
+  <figure class="figure">
+    <svg viewBox="0 0 760 260" role="img" aria-labelledby="jT">
+      <title id="jT">How a worker joins the cluster</title>
+      <rect x="6" y="6" width="748" height="248" rx="14" style="fill:var(--paper);stroke:var(--line);stroke-width:1.5"/>
+      <rect x="60" y="24" width="180" height="38" rx="9" style="fill:var(--kelp-soft);stroke:var(--kelp);stroke-width:1.5"/>
+      <text x="150" y="48" text-anchor="middle" style="fill:var(--kelp);font:700 14px var(--display)">worker-node1</text>
+      <rect x="520" y="24" width="180" height="38" rx="9" style="fill:var(--sea-soft);stroke:var(--sea);stroke-width:1.5"/>
+      <text x="610" y="48" text-anchor="middle" style="fill:var(--sea);font:700 14px var(--display)">controller-001</text>
+      <line x1="150" y1="62" x2="150" y2="240" style="stroke:var(--line);stroke-width:2;stroke-dasharray:4 5"/>
+      <line x1="610" y1="62" x2="610" y2="240" style="stroke:var(--line);stroke-width:2;stroke-dasharray:4 5"/>
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--ink)"/></marker>
+      </defs>
+      <g style="stroke:var(--ink);stroke-width:1.8;fill:none" marker-end="url(#ar)">
+        <line x1="152" y1="94" x2="606" y2="94" marker-end="url(#ar)"/>
+        <line x1="606" y1="140" x2="154" y2="140" marker-end="url(#ar)"/>
+        <line x1="152" y1="186" x2="606" y2="186" marker-end="url(#ar)"/>
+        <line x1="606" y1="226" x2="154" y2="226" marker-end="url(#ar)"/>
+      </g>
+      <g style="fill:var(--ink);font:500 13px var(--body)" text-anchor="middle">
+        <text x="380" y="84">1. Fetch cluster-info with the token</text>
+        <text x="380" y="130">2. Worker checks the CA hash matches</text>
+        <text x="380" y="176">3. TLS bootstrap: request a kubelet certificate</text>
+        <text x="380" y="216">4. Node registered. Calico starts, then Ready</text>
+      </g>
+    </svg>
+  </figure>
+
+  <div class="code out"><div class="code-top"><span>Each join ends with</span></div>
+<pre>This node has joined the cluster</pre></div>
+  <div class="done-row"><label><input type="checkbox"> Step 7 done</label></div>
+</section>
+
+<!-- STEP 7 -->
+<section class="step" id="s8" data-step="8">
+  <div class="step-head">
+    <div class="tile"><svg class="i"><use href="#i-activity"/></svg></div>
+    <h2>Verify and test</h2>
+    <span class="where ctrl"><svg class="i"><use href="#i-server"/></svg>via controller-001</span>
+  </div>
+  <p>Workers show <code>NotReady</code> for the first 2 to 4 minutes while Calico starts and images download. That's normal.</p>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass exec controller-001 -- kubectl get nodes -o wide
+multipass exec controller-001 -- kubectl get pods -A</pre></div>
+  <div class="code out"><div class="code-top"><span>Goal</span></div>
+<pre>NAME             STATUS   ROLES           INTERNAL-IP
+controller-001   Ready    control-plane   192.168.137.101
+worker-node1     Ready    &lt;none&gt;          192.168.137.102
+worker-node2     Ready    &lt;none&gt;          192.168.137.103</pre></div>
+  <h3>Label the workers (optional)</h3>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass exec controller-001 -- kubectl label node worker-node1 node-role.kubernetes.io/worker=
+multipass exec controller-001 -- kubectl label node worker-node2 node-role.kubernetes.io/worker=</pre></div>
+  <h3>Run a test deployment</h3>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass exec controller-001 -- kubectl create deployment nginx --image=nginx --replicas=2
+multipass exec controller-001 -- kubectl get pods -o wide</pre></div>
+  <div class="note good"><svg class="i"><use href="#i-check"/></svg><p>Two <code>nginx</code> pods reaching <code>Running</code>, one on each worker, means scheduling, networking and image pulls all work.</p></div>
+  <div class="code"><div class="code-top"><span>Remove the test</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass exec controller-001 -- kubectl delete deployment nginx</pre></div>
+  <div class="done-row"><label><input type="checkbox"> Step 8 done</label></div>
+</section>
+
+<!-- STEP 8 -->
+<section class="step" id="s9" data-step="9">
+  <div class="step-head">
+    <div class="tile"><svg class="i"><use href="#i-terminal"/></svg></div>
+    <h2>Use kubectl from Windows</h2>
+    <span class="where"><svg class="i"><use href="#i-monitor"/></svg>PowerShell on Windows</span>
+  </div>
+  <p>So far every command went through <code>multipass exec</code>. With a copy of the cluster's kubeconfig on Windows, you can run plain <code>kubectl</code> from PowerShell instead. The kubeconfig holds the API address, the certificates, and the default context.</p>
+
+  <figure class="figure">
+    <svg viewBox="0 0 760 170" role="img" aria-labelledby="kcT">
+      <title id="kcT">How kubectl on Windows reaches the cluster</title>
+      <rect x="6" y="6" width="748" height="158" rx="14" style="fill:var(--paper);stroke:var(--line);stroke-width:1.5"/>
+      <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--ink)"/></marker></defs>
+      <rect x="30" y="42" width="180" height="76" rx="11" style="fill:var(--surface);stroke:var(--kelp);stroke-width:2"/>
+      <text x="120" y="72" text-anchor="middle" style="fill:var(--ink);font:700 15px var(--display)">kubectl</text>
+      <text x="120" y="94" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">PowerShell on Windows</text>
+
+      <rect x="290" y="42" width="180" height="76" rx="11" style="fill:var(--buoy-soft);stroke:var(--buoy);stroke-width:2"/>
+      <text x="380" y="72" text-anchor="middle" style="fill:var(--buoy);font:700 15px var(--display)">admin.conf</text>
+      <text x="380" y="94" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">server, certs, context</text>
+
+      <rect x="550" y="42" width="180" height="76" rx="11" style="fill:var(--surface);stroke:var(--sea);stroke-width:2"/>
+      <text x="640" y="72" text-anchor="middle" style="fill:var(--ink);font:700 15px var(--display)">API server</text>
+      <text x="640" y="94" text-anchor="middle" style="fill:var(--sea);font:500 12px var(--mono)">192.168.137.101:6443</text>
+
+      <line x1="212" y1="80" x2="286" y2="80" marker-end="url(#ar2)" style="stroke:var(--ink);stroke-width:1.8"/>
+      <line x1="472" y1="80" x2="546" y2="80" marker-end="url(#ar2)" style="stroke:var(--ink);stroke-width:1.8"/>
+      <text x="249" y="70" text-anchor="middle" style="fill:var(--muted);font:400 11px var(--body)">reads</text>
+      <text x="509" y="70" text-anchor="middle" style="fill:var(--muted);font:400 11px var(--body)">connects to</text>
+      <text x="380" y="146" text-anchor="middle" style="fill:var(--muted);font:400 12px var(--body)">The file is set with KUBECONFIG and copied from the controller in the steps below.</text>
+    </svg>
+  </figure>
+
+  <h3>Install kubectl</h3>
+  <p>Already installed it in <a href="#s0">Install prerequisites</a>? Skip to the next section. Otherwise:</p>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>winget install -e --id Kubernetes.kubectl
+kubectl version --client</pre></div>
+  <p>Open a new PowerShell window afterwards so <code>kubectl</code> is on your PATH. kubectl must be within one minor version of the cluster (v1.32). If winget installs something much newer, download the matching version instead:</p>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>mkdir C:\k8s -Force
+curl.exe -L -o C:\k8s\kubectl.exe https://dl.k8s.io/release/v1.32.0/bin/windows/amd64/kubectl.exe
+$env:Path += ";C:\k8s"</pre></div>
+
+  <h3>Check that Windows can reach the API server</h3>
+  <div class="code"><div class="code-top"><span>PowerShell &mdash; example address, use your controller's</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>Test-NetConnection 192.168.137.101 -Port 6443</pre></div>
+  <div class="code out"><div class="code-top"><span>What you should see</span></div>
+<pre>TcpTestSucceeded : True</pre></div>
+
+  <h3>Copy the kubeconfig from the controller</h3>
+  <p>Pipe the file through <code>multipass exec</code>. The <code>-Encoding ascii</code> part matters, because PowerShell 5.1 otherwise saves the file as UTF-16 and kubectl can't read it.</p>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>mkdir C:\k8s -Force
+multipass exec controller-001 -- sudo cat /etc/kubernetes/admin.conf | Out-File -Encoding ascii C:\k8s\admin.conf
+Get-Content C:\k8s\admin.conf -TotalCount 5</pre></div>
+  <div class="note"><svg class="i"><use href="#i-info"/></svg><p><code>multipass transfer</code> can fail here with "cannot set permissions for local file". That's a Windows permissions quirk in Multipass, so use the command above instead.</p></div>
+
+  <h3>Point kubectl at the file</h3>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre><span class="c"># this window only</span>
+$env:KUBECONFIG = "C:\k8s\admin.conf"
+
+<span class="c"># every new window from now on</span>
+[Environment]::SetEnvironmentVariable("KUBECONFIG", "C:\k8s\admin.conf", "User")</pre></div>
+
+  <div class="note warn"><svg class="i"><use href="#i-alert"/></svg><p>If kubectl reports <code>localhost:8080</code> or "no context exists", it isn't reading your file. <code>KUBECONFIG</code> resets in every new window unless you set it permanently, and a typo in the path (like <code>admin.confg</code>) has the same effect. Check with <code>echo $env:KUBECONFIG</code> and <code>Test-Path C:\k8s\admin.conf</code>.</p></div>
+
+  <h3>Check and set the context</h3>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>kubectl config get-contexts
+kubectl config use-context kubernetes-admin@kubernetes
+kubectl get nodes -o wide</pre></div>
+  <p>Optionally give the context a friendlier name and a default namespace:</p>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>kubectl config rename-context kubernetes-admin@kubernetes multipass-k8s
+kubectl config use-context multipass-k8s
+kubectl config set-context --current --namespace=default</pre></div>
+
+  <details>
+    <summary>Already have other clusters in your kubeconfig?</summary>
+    <p>Merge instead of replacing, so you can switch clusters with <code>kubectl config use-context</code>.</p>
+    <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>$env:KUBECONFIG = "$HOME\.kube\config;C:\k8s\admin.conf"
+kubectl config view --flatten | Set-Content -Encoding ascii $HOME\.kube\merged
+Copy-Item $HOME\.kube\config $HOME\.kube\config.bak
+Move-Item -Force $HOME\.kube\merged $HOME\.kube\config
+Remove-Item Env:KUBECONFIG
+kubectl config get-contexts</pre></div>
+  </details>
+
+  <h3>Try it: open nginx in your browser</h3>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>kubectl create deployment nginx --image=nginx --replicas=2
+kubectl expose deployment nginx --port=80 --type=NodePort
+kubectl get svc nginx</pre></div>
+  <div class="code out"><div class="code-top"><span>Note the port after 80:</span></div>
+<pre>NAME    TYPE       CLUSTER-IP     PORT(S)        AGE
+nginx   NodePort   10.x.x.x       80:31234/TCP   5s</pre></div>
+  <p>Open <code>http://&lt;any-node-IP&gt;:31234</code> in your Windows browser, using any node's static IP from step 3 (e.g. <code>192.168.137.102</code> in this guide's example) and your own NodePort. You should see the nginx welcome page. Clean up when done:</p>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>kubectl delete service nginx
+kubectl delete deployment nginx</pre></div>
+
+  <div class="note warn"><svg class="i"><use href="#i-alert"/></svg><p>This kubeconfig gives full admin access to the cluster. Keep it private and never commit it to git. If a VM's IP changes after a restart, copy the file again.</p></div>
+  <div class="done-row"><label><input type="checkbox"> Step 9 done</label></div>
+</section>
+
+<!-- STEP SNAPSHOT -->
+<section class="step" id="s10" data-step="10">
+  <div class="step-head">
+    <div class="tile"><svg class="i"><use href="#i-camera"/></svg></div>
+    <h2>Snapshot the cluster</h2>
+    <span class="where"><svg class="i"><use href="#i-monitor"/></svg>PowerShell on Windows</span>
+  </div>
+  <p>Once all three nodes are <code>Ready</code>, save the state so you can roll back after a mistake. Multipass can only snapshot <strong>stopped</strong> VMs, and the three nodes belong together, so stop them all and give every snapshot the same name. Stop the workers first and the controller last.</p>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass stop worker-node1 worker-node2
+multipass stop controller-001
+
+$d = Get-Date -Format "yyyy-MM-dd"
+$c = "kubeadm cluster, 3 nodes Ready, taken " + (Get-Date -Format "yyyy-MM-dd HH:mm")
+
+foreach ($vm in "controller-001","worker-node1","worker-node2") {
+    multipass snapshot $vm --name "cluster-ready-$d" --comment $c
+}
+
+multipass start --all</pre></div>
+  <p>That creates names like <code>cluster-ready-2026-09-21</code>. If you might snapshot twice in one day, use <code>-Format "yyyy-MM-dd-HHmm"</code> so the names don't clash. Snapshot names can contain letters, digits and hyphens, but not underscores, spaces or colons.</p>
+
+  <h3>List your snapshots</h3>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass list --snapshots
+multipass info controller-001 --snapshots</pre></div>
+
+  <h3>Restore all three together</h3>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass stop --all
+
+foreach ($vm in "controller-001","worker-node1","worker-node2") {
+    multipass restore "$vm.cluster-ready-2026-09-21" --destructive
+}
+
+multipass start --all
+kubectl get nodes</pre></div>
+  <p>Restoring discards each VM's current state, so make sure that's what you want. Nodes can take a minute or two to show <code>Ready</code> again.</p>
+
+  <h3>Delete a snapshot you no longer need</h3>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass delete controller-001.cluster-ready-2026-09-21 --purge</pre></div>
+
+  <div class="note"><svg class="i"><use href="#i-info"/></svg><p>A second useful snapshot point is after step 5 (all nodes prepped, before <code>kubeadm init</code>). Use <code>--name "prepped-$d"</code> and you can redo the cluster without reinstalling packages.</p></div>
+  <div class="note warn"><svg class="i"><use href="#i-alert"/></svg><p>Snapshots live on the same disk as the VMs, so they aren't a backup: deleting a VM with <code>--purge</code> deletes its snapshots too. If <code>multipass snapshot</code> reports an error about driver support, snapshots aren't available with your VirtualBox setup.</p></div>
+  <div class="done-row"><label><input type="checkbox"> Step 10 done</label></div>
+</section>
+
+<!-- TROUBLESHOOTING -->
+<section class="step" id="fix">
+  <div class="step-head">
+    <div class="tile"><svg class="i"><use href="#i-buoy"/></svg></div>
+    <h2>Troubleshooting</h2>
+  </div>
+
+  <details>
+    <summary>Workers can't ping the controller</summary>
+    <p>Wi-Fi adapters often block bridging, but a wired adapter like yours usually works. Confirm each VM has an <code>enp0s8</code> address with <code>multipass exec &lt;vm&gt; -- ip -4 addr</code>. If <code>enp0s8</code> is missing, the VM was created without <code>--network Ethernet</code>. Delete and recreate it. Then check that Windows Firewall isn't blocking ICMP on the bridged adapter.</p>
+  </details>
+  <details>
+    <summary>prep_node.sh says it can't detect an IP on enp0s8</summary>
+    <p>Run <code>multipass exec &lt;vm&gt; -- ip -4 addr</code> and look for the non-<code>10.0.2.15</code> address. If it lives on a different interface name, pass that VM's own static IP manually: <code>bash prep_node.sh &lt;that-VMs-static-IP&gt;</code> (e.g. <code>bash prep_node.sh 192.168.137.101</code>). If <code>init_controller.sh</code> reports the same problem, the interface name is hard-coded as <code>enp0s8</code> at the top, so edit it there.</p>
+  </details>
+  <details>
+    <summary>kubeadm join: connection refused or timeout</summary>
+    <p>The join command must point at the controller's <code>enp0s8</code> address on port 6443. "Connection refused" against <code>10.0.2.15</code> means you're using the NAT address, which every VM shares. Confirm the API server is up with <code>multipass exec controller-001 -- sudo ss -tlnp | findstr 6443</code>, or from inside the controller <code>sudo ss -tlnp | grep 6443</code>.</p>
+  </details>
+  <details>
+    <summary>Token expired or join command lost</summary>
+    <p>Tokens last 24 hours. Print a fresh command: <code>multipass exec controller-001 -- sudo kubeadm token create --print-join-command</code>.</p>
+  </details>
+  <details>
+    <summary>A node is still NotReady after 5 minutes</summary>
+    <p>Find the stuck pod with <code>kubectl get pods -A -o wide</code>, then run <code>kubectl describe pod -n calico-system &lt;pod&gt;</code> for the reason. On the affected worker, check <code>sudo journalctl -u kubelet -n 30 --no-pager</code>. Image pulls are the usual cause and resolve on their own.</p>
+  </details>
+  <details>
+    <summary>The cluster broke after restarting the VMs</summary>
+    <p>The cluster is tied to the VMs' IP addresses. If <code>multipass list</code> shows different addresses than when you built it (for example the controller moved from <code>.63</code> to <code>.22</code>), the API server certificate no longer matches and kubectl times out. Fix it once: set static IPs in step 3, wipe Kubernetes with the reset commands below, then redo steps 5 to 9.</p>
+  </details>
+  <details>
+    <summary>multipass transfer: "cannot set permissions for local file"</summary>
+    <p>This is a Windows permissions quirk in Multipass. The file may still have copied, so check with <code>Get-Content C:\k8s\admin.conf -TotalCount 5</code>. If it's missing or empty, use the <code>multipass exec ... cat</code> command from step 9, which avoids the problem.</p>
+  </details>
+  <details>
+    <summary>kubectl: connection to localhost:8080 refused</summary>
+    <p>kubectl found no kubeconfig, so it fell back to its default. <code>KUBECONFIG</code> is either unset in this window or points at a path that doesn't exist. Run <code>echo $env:KUBECONFIG</code> and <code>Test-Path C:\k8s\admin.conf</code>, then set <code>$env:KUBECONFIG = "C:\k8s\admin.conf"</code>. Set it permanently with <code>[Environment]::SetEnvironmentVariable("KUBECONFIG", "C:\k8s\admin.conf", "User")</code> and open a new window.</p>
+  </details>
+  <details>
+    <summary>kubectl: no context exists with the name "kubernetes-admin@kubernetes"</summary>
+    <p>The file kubectl is reading doesn't contain that context. Check <code>kubectl config get-contexts</code> to see what's loaded, and confirm the file name has no typo (<code>dir C:\k8s</code>). If you renamed the context earlier, use the new name.</p>
+  </details>
+  <details>
+    <summary>The static IP didn't apply</summary>
+    <p>Run <code>multipass exec &lt;vm&gt; -- sudo cat /etc/netplan/60-static-extra0.yaml</code> and confirm it exists and has the right MAC. Then <code>sudo netplan generate</code> shows any syntax error. If the old DHCP address is still on <code>enp0s8</code>, run <code>multipass restart &lt;vm&gt;</code>. Also confirm the ID in <code>/etc/netplan/50-cloud-init.yaml</code> is <code>extra0</code>, because the script relies on it to merge the two files.</p>
+  </details>
+  <details>
+    <summary>kubectl on Windows can't read the config, or shows odd characters</summary>
+    <p>The file was probably saved as UTF-16. Re-create it with <code>Out-File -Encoding ascii</code> as shown in step 9. Also confirm <code>$env:KUBECONFIG</code> points at the right file.</p>
+  </details>
+  <details>
+    <summary>kubectl on Windows times out</summary>
+    <p>Run <code>Test-NetConnection &lt;your-controller-IP&gt; -Port 6443</code>. If it fails, the Windows host can't reach the bridged network, or the controller's IP changed. In the second case, look up the new IP, then copy the kubeconfig again.</p>
+  </details>
+</section>
+
+<!-- RESET -->
+<section class="step" id="reset">
+  <div class="step-head">
+    <div class="tile"><svg class="i"><use href="#i-layers"/></svg></div>
+    <h2>Reset and clean up</h2>
+  </div>
+  <h3>Redo a worker's join</h3>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass exec worker-node1 -- sudo kubeadm reset -f</pre></div>
+  <h3>Redo the controller's init</h3>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass exec controller-001 -- sudo kubeadm reset -f
+multipass exec controller-001 -- sudo rm -rf /etc/cni/net.d /home/ubuntu/.kube</pre></div>
+  <h3>Wipe Kubernetes but keep the VMs</h3>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass exec worker-node1 -- sudo kubeadm reset -f
+multipass exec worker-node2 -- sudo kubeadm reset -f
+multipass exec controller-001 -- sudo kubeadm reset -f
+multipass exec controller-001 -- sudo rm -rf /etc/cni/net.d /home/ubuntu/.kube
+multipass exec worker-node1 -- sudo rm -rf /etc/cni/net.d
+multipass exec worker-node2 -- sudo rm -rf /etc/cni/net.d
+multipass restart --all</pre></div>
+  <p>Then redo steps 6 to 9. Only redo step 5 (<code>prep_node.sh</code>) if the VMs' IP addresses changed.</p>
+
+  <h3>Delete the whole cluster</h3>
+  <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
+<pre>multipass delete --purge controller-001 worker-node1 worker-node2</pre></div>
+
+  <h3>Values used in this guide</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Item</th><th>Value</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>VM network</td><td><code>192.168.137.0/24</code> <span style="color:var(--muted)">(example &mdash; yours depends on your own network, see step 3)</span></td><td>Bridged <code>enp0s8</code>, reachable between VMs</td></tr>
+      <tr><td>Static IPs</td><td><code>.101</code> controller, <code>.102</code> and <code>.103</code> workers <span style="color:var(--muted)">(example host numbers)</span></td><td>Chosen and set in step 3, so restarts don't break the cluster</td></tr>
+      <tr><td>Pod network</td><td><code>10.244.0.0/16</code></td><td>Doesn't overlap the VM network</td></tr>
+      <tr><td>NAT interface</td><td><code>10.0.2.15</code></td><td>Same on every VM, so it's ignored</td></tr>
+      <tr><td>Kubernetes</td><td>v1.32</td><td>Pinned with <code>apt-mark hold</code></td></tr>
+      <tr><td>Calico</td><td>v3.27.0</td><td>Installed through the Tigera operator</td></tr>
+      <tr><td>Windows kubeconfig</td><td><code>C:\k8s\admin.conf</code></td><td>Selected with the <code>KUBECONFIG</code> variable</td></tr>
+      <tr><td>Context name</td><td><code>kubernetes-admin@kubernetes</code></td><td>Created by kubeadm</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>Commands run from Windows PowerShell through <code>multipass exec</code>. Progress ticks are saved in this browser only.</footer>
+</main>
+</div>
+
+<!-- embedded scripts for download -->
+<script type="text/plain" id="src-prep">
+#!/bin/bash
+# =====================================================================
+# KUBERNETES NODE PREP (run on controller AND every worker)
+# Auto-detects the bridged interface IP (enp0s8) and pins kubelet to it.
+# Usage: bash prep_node.sh            (auto-detect)
+#        bash prep_node.sh 192.168.1.50   (manual IP override)
+# =====================================================================
+
+set -e
+
+NODE_IP="${1:-$(ip -4 -o addr show enp0s8 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)}"
+
+if [ -z "$NODE_IP" ]; then
+  echo "ERROR: could not detect an IP on enp0s8. Run 'ip -4 addr' and pass the IP as an argument."
+  exit 1
+fi
+echo ">>> Using node IP: $NODE_IP"
+
+echo "=== [1/4] Disabling Swap & Tuning Kernel ==="
+sudo swapoff -a
+sudo sed -i '/swap/d' /etc/fstab
+
+sudo tee /etc/modules-load.d/k8s.conf > /dev/null <<EOF
+overlay
+br_netfilter
+EOF
+sudo modprobe overlay
+sudo modprobe br_netfilter
+
+sudo tee /etc/sysctl.d/k8s.conf > /dev/null <<EOF
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+sudo sysctl --system > /dev/null
+
+echo "=== [2/4] Installing Containerd (SystemdCgroup enabled) ==="
+sudo apt-get update
+sudo apt-get install -y containerd
+sudo mkdir -p /etc/containerd
+containerd config default | sudo tee /etc/containerd/config.toml > /dev/null
+sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+sudo systemctl restart containerd
+sudo systemctl enable containerd
+
+echo "=== [3/4] Installing kubelet, kubeadm, kubectl (v1.32) ==="
+sudo apt-get install -y apt-transport-https ca-certificates curl gpg
+sudo mkdir -p -m 755 /etc/apt/keyrings
+sudo rm -f /etc/apt/sources.list.d/kubernetes.list
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/kubernetes-archive-keyring.gpg
+sudo chmod 644 /usr/share/keyrings/kubernetes-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
+
+echo "=== [4/4] Pinning kubelet to $NODE_IP ==="
+echo "KUBELET_EXTRA_ARGS=--node-ip=$NODE_IP" | sudo tee /etc/default/kubelet > /dev/null
+sudo systemctl enable --now kubelet
+
+echo "=== NODE PREP COMPLETE (IP: $NODE_IP) ==="
+</script>
+
+<script type="text/plain" id="src-static">
+#!/bin/bash
+# =====================================================================
+# SET A STATIC IP ON THE BRIDGED INTERFACE (enp0s8) OF A MULTIPASS VM
+# Merges with cloud-init's "extra0" netplan entry (same ID) and turns DHCP off.
+# Usage: bash set_static_ip.sh 192.168.137.101
+# =====================================================================
+
+set -e
+
+IP="${1:?Usage: bash set_static_ip.sh <static-ip>   e.g. 192.168.137.101}"
+IFACE="enp0s8"
+
+if ! ip link show "$IFACE" > /dev/null 2>&1; then
+  echo "ERROR: interface $IFACE not found. Run 'ip -4 addr' to find the bridged interface."
+  exit 1
+fi
+
+MAC="$(cat /sys/class/net/$IFACE/address)"
+PREFIX="$(ip -4 -o addr show "$IFACE" | awk '{print $4}' | cut -d/ -f2 | head -n1)"
+PREFIX="${PREFIX:-24}"
+
+echo ">>> Interface : $IFACE"
+echo ">>> MAC       : $MAC"
+echo ">>> Static IP : $IP/$PREFIX"
+
+# Same ID (extra0) as /etc/netplan/50-cloud-init.yaml, so netplan merges the two;
+# this file is read later and overrides dhcp4.
+sudo tee /etc/netplan/60-static-extra0.yaml > /dev/null <<EOF
+network:
+  version: 2
+  ethernets:
+    extra0:
+      match:
+        macaddress: "$MAC"
+      dhcp4: false
+      addresses: [$IP/$PREFIX]
+EOF
+
+sudo chmod 600 /etc/netplan/60-static-extra0.yaml
+sudo netplan generate
+sudo netplan apply
+
+sleep 3
+echo ">>> Result:"
+ip -4 addr show "$IFACE"
+</script>
+
+<script type="text/plain" id="src-init">
+#!/bin/bash
+# =====================================================================
+# KUBERNETES CONTROLLER INIT (run ONLY on controller-001, AFTER prep_node.sh)
+# Auto-detects the enp0s8 IP and subnet; configures kubeadm and Calico to match.
+# Usage: bash init_controller.sh
+# =====================================================================
+
+set -e
+
+IFACE_CIDR="$(ip -4 -o addr show enp0s8 2>/dev/null | awk '{print $4}' | head -n1)"
+if [ -z "$IFACE_CIDR" ]; then
+  echo "ERROR: no IP found on enp0s8. Run 'ip -4 addr' to check the interface."
+  exit 1
+fi
+
+CTRL_IP="${IFACE_CIDR%/*}"
+VM_SUBNET="$(python3 -c "import ipaddress,sys; print(ipaddress.ip_interface(sys.argv[1]).network)" "$IFACE_CIDR")"
+POD_CIDR="10.244.0.0/16"
+
+echo ">>> Controller IP : $CTRL_IP"
+echo ">>> VM subnet     : $VM_SUBNET"
+echo ">>> Pod CIDR      : $POD_CIDR"
+
+echo "=== [1/3] Bootstrapping control plane ==="
+sudo kubeadm init --apiserver-advertise-address="$CTRL_IP" --pod-network-cidr="$POD_CIDR"
+
+echo "=== [2/3] Exporting admin kubeconfig ==="
+mkdir -p "$HOME/.kube"
+sudo cp -f /etc/kubernetes/admin.conf "$HOME/.kube/config"
+sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
+
+echo "=== [3/3] Installing Calico (bound to $VM_SUBNET) ==="
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/tigera-operator.yaml
+
+cat > "$HOME/calico-custom-resources.yaml" <<EOF
+apiVersion: operator.tigera.io/v1
+kind: Installation
+metadata:
+  name: default
+spec:
+  calicoNetwork:
+    nodeAddressAutodetectionV4:
+      cidrs:
+        - $VM_SUBNET
+    ipPools:
+    - blockSize: 26
+      cidr: $POD_CIDR
+      encapsulation: VXLANCrossSubnet
+      natOutgoing: Enabled
+      nodeSelector: all()
+---
+apiVersion: operator.tigera.io/v1
+kind: APIServer
+metadata:
+  name: default
+spec: {}
+EOF
+
+# The operator CRDs need a moment to register before the Installation can be created
+sleep 20
+kubectl create -f "$HOME/calico-custom-resources.yaml"
+
+echo ""
+echo "=== CONTROLLER READY ==="
+echo "Join command for the workers (run with sudo on each worker):"
+sudo kubeadm token create --print-join-command
+echo ""
+echo "Watch progress with: kubectl get nodes -o wide   and   kubectl get pods -A -w"
+</script>
+
+<script>
+(function(){
+  var KEY='k8s-multipass-guide-done';
+  var total=document.querySelectorAll('.step[data-step]').length;
+
+  // copy buttons
+  document.querySelectorAll('.copy').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var pre=btn.closest('.code').querySelector('pre');
+      var text=pre.innerText.replace(/\u00a0/g,' ').trim();
+      var label=btn.querySelector('span');
+      function ok(){btn.classList.add('ok');label.textContent='Copied';setTimeout(function(){btn.classList.remove('ok');label.textContent='Copy';},1600);}
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(ok,fallback);
+      }else{fallback();}
+      function fallback(){
+        var t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();
+        try{document.execCommand('copy');ok();}catch(e){}
+        document.body.removeChild(t);
+      }
+    });
+  });
+
+  // script downloads (LF line endings so bash runs in the VM)
+  document.querySelectorAll('[data-dl]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var src=document.getElementById(btn.getAttribute('data-src'));
+      var text=src.textContent.replace(/^\s*\n/,'').replace(/\r\n/g,'\n');
+      var blob=new Blob([text],{type:'text/x-shellscript'});
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);a.download=btn.getAttribute('data-dl');
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+    });
+  });
+
+  // progress
+  var done=[];
+  try{done=JSON.parse(localStorage.getItem(KEY)||'[]');}catch(e){done=[];}
+  var boxes=document.querySelectorAll('.step[data-step] .done-row input');
+  var navLinks=document.querySelectorAll('nav ol a');
+
+  function render(){
+    var n=done.length;
+    var label=n+' of '+total+' steps done';
+    document.getElementById('sideProgress').textContent=label;
+    document.getElementById('topProgress').textContent=label;
+    var pct=(n/total*100)+'%';
+    document.getElementById('sideBar').style.width=pct;
+    document.getElementById('topBar').style.width=pct;
+    navLinks.forEach(function(a,i){a.classList.toggle('done',done.indexOf(i+1)>-1);});
+  }
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(done));}catch(e){}}
+
+  boxes.forEach(function(box){
+    var step=+box.closest('.step').getAttribute('data-step');
+    box.checked=done.indexOf(step)>-1;
+    box.addEventListener('change',function(){
+      done=done.filter(function(s){return s!==step;});
+      if(box.checked)done.push(step);
+      save();render();
+    });
+  });
+  document.getElementById('resetProgress').addEventListener('click',function(){
+    done=[];boxes.forEach(function(b){b.checked=false;});save();render();
+  });
+  render();
+
+  // highlight current section in sidebar
+  var sections=Array.prototype.slice.call(document.querySelectorAll('.step[id]'));
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){
+          var id=e.target.id;
+          document.querySelectorAll('nav a').forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});
+        }
+      });
+    },{rootMargin:'-20% 0px -70% 0px'});
+    sections.forEach(function(s){io.observe(s);});
+  }
+})();
+</script>
+</body>
+</html>
