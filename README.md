@@ -348,12 +348,10 @@ multipass delete --purge controller-001 worker-node1 worker-node2
 
 ## Configuration reference
 
-| Setting | Value |
-| --- | --- |
-| Kubernetes | v1.32 |
-| Calico | v3.27.0 |
-| Pod network | `10.244.0.0/16` |
-| VM subnet | Detected from your bridged network |
-| Static IPs | Choose three free addresses in that subnet |
-| Windows kubeconfig | `C:\k8s\admin.conf` |
-| Default Kubernetes context | `kubernetes-admin@kubernetes` |
+- **Kubernetes:** `v1.32`
+- **Calico:** `v3.27.0`
+- **Pod network:** `10.244.0.0/16`
+- **VM subnet:** Detected from your bridged network
+- **Static IPs:** Choose three free addresses in that subnet
+- **Windows kubeconfig:** `C:\k8s\admin.conf`
+- **Default Kubernetes context:** `kubernetes-admin@kubernetes`
