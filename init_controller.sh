@@ -1,15 +1,38 @@
 #!/bin/bash
 # =====================================================================
 # KUBERNETES CONTROLLER INIT (run ONLY on controller-001, AFTER prep_node.sh)
-# Auto-detects the enp0s8 IP and subnet; configures kubeadm and Calico to match.
+# Auto-detects the bridged interface IP and subnet; configures kubeadm and Calico to match.
 # Usage: bash init_controller.sh
 # =====================================================================
 
 set -e
 
-IFACE_CIDR="$(ip -4 -o addr show enp0s8 2>/dev/null | awk '{print $4}' | head -n1)"
+find_bridged_iface() {
+  if [ -n "${K8S_INTERFACE:-}" ]; then
+    ip link show "$K8S_INTERFACE" > /dev/null 2>&1 || {
+      echo "ERROR: interface $K8S_INTERFACE not found." >&2
+      return 1
+    }
+    printf '%s\n' "$K8S_INTERFACE"
+    return
+  fi
+
+  local default_iface
+  local -a candidates
+  default_iface="$(ip -4 route show default 2>/dev/null | awk 'NR == 1 { for (i=1; i<=NF; i++) if ($i == "dev") { print $(i+1); exit } }')"
+  mapfile -t candidates < <(ip -o -4 addr show scope global 2>/dev/null | awk -v default_iface="$default_iface" '$2 != default_iface { sub(/@.*/, "", $2); print $2 }' | sort -u)
+
+  if [ "${#candidates[@]}" -ne 1 ]; then
+    echo "ERROR: could not uniquely detect the bridged interface. Run 'ip -4 -o addr show scope global' and set K8S_INTERFACE to the bridged interface name." >&2
+    return 1
+  fi
+  printf '%s\n' "${candidates[0]}"
+}
+
+IFACE="$(find_bridged_iface)"
+IFACE_CIDR="$(ip -4 -o addr show "$IFACE" 2>/dev/null | awk '{print $4}' | head -n1)"
 if [ -z "$IFACE_CIDR" ]; then
-  echo "ERROR: no IP found on enp0s8. Run 'ip -4 addr' to check the interface."
+  echo "ERROR: no IP found on $IFACE. Run 'ip -4 addr' to check the interface."
   exit 1
 fi
 
@@ -18,6 +41,7 @@ VM_SUBNET="$(python3 -c "import ipaddress,sys; print(ipaddress.ip_interface(sys.
 POD_CIDR="10.244.0.0/16"
 
 echo ">>> Controller IP : $CTRL_IP"
+echo ">>> Interface     : $IFACE"
 echo ">>> VM subnet     : $VM_SUBNET"
 echo ">>> Pod CIDR      : $POD_CIDR"
 
