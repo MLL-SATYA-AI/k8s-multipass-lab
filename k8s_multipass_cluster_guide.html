@@ -405,15 +405,15 @@ ping &lt;your-subnet&gt;.103</pre></div>
 multipass transfer .\set_static_ip.sh worker-node1:/home/ubuntu/
 multipass transfer .\set_static_ip.sh worker-node2:/home/ubuntu/
 
-<pre>multipass exec controller-001 -- bash set_static_ip.sh &lt;controller-static-IP&gt;
-multipass exec worker-node1 -- bash set_static_ip.sh &lt;worker1-static-IP&gt;
-multipass exec worker-node2 -- bash set_static_ip.sh &lt;worker2-static-IP&gt;</pre></div>
+<pre>multipass exec controller-001 -- bash /home/ubuntu/set_static_ip.sh &lt;controller-static-IP&gt;
+multipass exec worker-node1 -- bash /home/ubuntu/set_static_ip.sh &lt;worker1-static-IP&gt;
+multipass exec worker-node2 -- bash /home/ubuntu/set_static_ip.sh &lt;worker2-static-IP&gt;</pre></div>
   <div class="code out"><div class="code-top"><span>Each run reports the detected interface and static address</span></div>
 <pre>&gt;&gt;&gt; Static IP : 192.168.137.101/24
 &gt;&gt;&gt; Result:
 3: &lt;bridged-interface&gt;: ...
     inet 192.168.137.101/24 ... scope global &lt;bridged-interface&gt;</pre></div>
-  <div class="note"><svg class="i"><use href="#i-info"/></svg><p>If you saved or edited the script on Windows and bash complains about <code>\r</code>, strip the Windows line endings first: <code>multipass exec &lt;vm&gt; -- sed -i 's/\r$//' set_static_ip.sh</code>. The download button on this page already uses the right line endings.</p></div>
+  <div class="note"><svg class="i"><use href="#i-info"/></svg><p>If you saved or edited the script on Windows and bash complains about <code>\r</code>, strip the Windows line endings first: <code>multipass exec &lt;vm&gt; -- sed -i 's/\r$//' /home/ubuntu/set_static_ip.sh</code>. The download button on this page already uses the right line endings.</p></div>
 
   <h3>Restart and confirm the addresses stick</h3>
   <div class="code"><div class="code-top"><span>PowerShell &mdash; example address, use your controller's</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
@@ -451,9 +451,9 @@ multipass transfer .\init_controller.sh controller-001:/home/ubuntu/</pre></div>
   </div>
   <p>The script turns off swap, sets the kernel network options, installs containerd and the Kubernetes tools (v1.32), and detects each VM's bridged address for kubelet instead of using the NAT address.</p>
   <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
-<pre>multipass exec controller-001 -- bash prep_node.sh
-multipass exec worker-node1 -- bash prep_node.sh
-multipass exec worker-node2 -- bash prep_node.sh</pre></div>
+<pre>multipass exec controller-001 -- bash /home/ubuntu/prep_node.sh
+multipass exec worker-node1 -- bash /home/ubuntu/prep_node.sh
+multipass exec worker-node2 -- bash /home/ubuntu/prep_node.sh</pre></div>
   <div class="code out"><div class="code-top"><span>Check the first and last lines of each run</span></div>
 <pre>&gt;&gt;&gt; Using node IP: 192.168.137.101
 ...
@@ -469,9 +469,10 @@ multipass exec worker-node2 -- bash prep_node.sh</pre></div>
     <h2>Start the controller</h2>
     <span class="where ctrl"><svg class="i"><use href="#i-server"/></svg>controller-001</span>
   </div>
-  <p>This runs <code>kubeadm init</code> with the real IP, sets up <code>kubectl</code>, and installs Calico bound to the right subnet. It ends by printing the join command for the workers.</p>
+  <p>First copy <code>init_controller.sh</code> from the folder where you downloaded or cloned it to the controller VM. Run this from that folder in PowerShell; then the second command runs <code>kubeadm init</code> with the real IP, sets up <code>kubectl</code>, and installs Calico bound to the right subnet. It ends by printing the join command for the workers.</p>
   <div class="code"><div class="code-top"><span>PowerShell</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
-<pre>multipass exec controller-001 -- bash init_controller.sh</pre></div>
+<pre>multipass transfer .\init_controller.sh controller-001:/home/ubuntu/
+multipass exec controller-001 -- bash /home/ubuntu/init_controller.sh</pre></div>
 
   <figure class="figure">
     <svg viewBox="0 0 760 250" role="img" aria-labelledby="cpT">
@@ -757,7 +758,7 @@ kubectl get nodes</pre></div>
   </details>
   <details>
     <summary>A script cannot detect the bridged interface</summary>
-    <p>Run <code>multipass exec &lt;vm&gt; -- ip -4 route show default</code> and <code>multipass exec &lt;vm&gt; -- ip -4 -o addr show scope global</code>. If more than one non-default IPv4 interface appears, identify the bridged one and rerun the script with <code>env K8S_INTERFACE=&lt;interface-name&gt;</code>, for example <code>multipass exec worker-node1 -- env K8S_INTERFACE=ens4 bash prep_node.sh</code>. Interface names vary between VM images and machines.</p>
+    <p>Run <code>multipass exec &lt;vm&gt; -- ip -4 route show default</code> and <code>multipass exec &lt;vm&gt; -- ip -4 -o addr show scope global</code>. If more than one non-default IPv4 interface appears, identify the bridged one and rerun the script with <code>env K8S_INTERFACE=&lt;interface-name&gt;</code>, for example <code>multipass exec worker-node1 -- env K8S_INTERFACE=ens4 bash /home/ubuntu/prep_node.sh</code>. Interface names vary between VM images and machines.</p>
   </details>
   <details>
     <summary>kubeadm join: connection refused or timeout</summary>
