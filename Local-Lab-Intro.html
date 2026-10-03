@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 1 intro: cartoon storyboard</title>
+<style>
+:root{--ink:#10243a;--muted:#4b5f75;--paper:#eef3f9;--surface:#fff;--line:#d5dfeb;--sea:#2f65d9;--sea-soft:#dfe9fc;--kelp:#12805f;--kelp-soft:#d9f2ea;--buoy:#a35d00;--buoy-soft:#fdeccd;--red:#d94a4a;--red-soft:#fde0e0}
+@media(prefers-color-scheme:dark){:root{--ink:#e6eefb;--muted:#9db0c7;--paper:#0b1523;--surface:#12233a;--line:#24384f;--sea:#7ba3ff;--sea-soft:#17325f;--kelp:#3ecf9f;--kelp-soft:#0f3a30;--buoy:#f0b455;--buoy-soft:#3a2a0c;--red:#ff7b7b;--red-soft:#43191b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:28px 18px 60px}
+h1{font:800 clamp(1.7rem,4vw,2.4rem)/1.1 "Segoe UI",sans-serif;margin:0 0 6px}
+.sub{color:var(--muted);margin:0 0 26px}
+.scene{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px 16px 10px;margin:0 0 22px}
+.scene h2{font-size:1.05rem;margin:0 0 4px}
+.scene h2 span{background:var(--sea);color:#fff;border-radius:999px;padding:1px 10px;margin-right:8px;font-size:.85rem}
+.say{color:var(--muted);font-style:italic;margin:0 0 6px;font-size:.93rem}
+svg{width:100%;height:auto;display:block}
+svg text{font-family:"Segoe Print","Comic Sans MS","Chalkboard SE",cursive;fill:var(--ink)}
+.o{stroke:var(--ink);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.m{fill:var(--muted)}
+</style></head><body><main>
+<h1>Lab 1 intro: cartoon storyboard</h1>
+<p class="sub">Scroll through while you speak. One picture per part of the script.</p>
+
+<defs></defs>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<g id="face"><circle cx="-9" cy="0" r="3.5" fill="#10243a"/><circle cx="9" cy="0" r="3.5" fill="#10243a"/><path d="M-9 9q9 8 18 0" fill="none" stroke="#10243a" stroke-width="3" stroke-linecap="round"/></g>
+<g id="node"><rect x="-45" y="-40" width="90" height="80" rx="14" class="o"/><rect x="-33" y="-28" width="66" height="30" rx="6" fill="#fff" stroke="#10243a" stroke-width="2"/><use href="#face" y="-13" transform="scale(.8)"/><circle cx="-24" cy="22" r="4" fill="#12805f"/><circle cx="-10" cy="22" r="4" fill="#12805f"/></g>
+</defs></svg>
+
+<section class="scene"><h2><span>1</span>Hook</h2><p class="say">"Our own Kubernetes cluster, on our own laptop. Free, offline, no cloud account."</p>
+<svg viewBox="0 0 640 280" role="img" aria-label="Laptop saying hi, cloud bill crossed out, free badge">
+<g transform="translate(95 130)"><path d="M-50 30q-20 0-20-22t24-24q4-26 34-26t36 24q26 0 26 24t-20 24z" fill="var(--sea-soft)" class="o"/><text x="-5" y="12" text-anchor="middle" font-size="22">$$$</text><path d="M-75-55l120 110M45-55l-120 110" stroke="var(--red)" stroke-width="9" stroke-linecap="round"/></g>
+<g transform="translate(320 150)"><rect x="-85" y="-80" width="170" height="110" rx="12" fill="var(--kelp-soft)" class="o"/><path d="M-110 30h220l-14 26h-192z" fill="var(--line)" class="o"/><use href="#face" y="-35" transform="translate(0 -35) scale(2) translate(0 17)"/><text x="0" y="-85" text-anchor="middle" font-size="0"> </text></g>
+<g transform="translate(330 28)"><rect x="-95" y="-18" width="190" height="42" rx="21" fill="#fff" class="o"/><path d="M-12 24l-8 14 22-14z" fill="#fff" class="o"/><text x="0" y="9" text-anchor="middle" font-size="17" style="fill:#10243a">Hi everyone! 👋</text></g>
+<g transform="translate(545 130) rotate(8)"><circle r="58" fill="var(--buoy-soft)" class="o"/><text y="-2" text-anchor="middle" font-size="26" font-weight="700">FREE</text><text y="24" text-anchor="middle" font-size="13">offline • no signup</text></g>
+<text x="95" y="250" text-anchor="middle" font-size="14" class="m">no cloud bill</text><text x="320" y="262" text-anchor="middle" font-size="14" class="m">your own PC</text></svg></section>
+
+<section class="scene"><h2><span>2</span>Why local?</h2><p class="say">"Free trial = 1 month. A full-time job eats the time. A local lab never expires."</p>
+<svg viewBox="0 0 640 290" role="img" aria-label="Cloud trial runs out versus local lab forever">
+<rect x="14" y="14" width="296" height="262" rx="16" fill="var(--red-soft)" class="o"/>
+<text x="162" y="46" text-anchor="middle" font-size="18" font-weight="700">☁️ Cloud free trial</text>
+<g transform="translate(162 130)"><rect x="-70" y="-50" width="140" height="100" rx="10" fill="#fff" class="o"/><rect x="-70" y="-50" width="140" height="28" rx="10" fill="var(--red)" class="o"/><text y="-30" text-anchor="middle" font-size="15" style="fill:#fff">30 days</text><text y="22" text-anchor="middle" font-size="34" style="fill:#10243a">⏳</text></g>
+<text x="162" y="215" text-anchor="middle" font-size="15">💼 busy job… 😴 no time</text><text x="162" y="250" text-anchor="middle" font-size="16" font-weight="700" style="fill:var(--red)">credits gone! 💸</text>
+<rect x="330" y="14" width="296" height="262" rx="16" fill="var(--kelp-soft)" class="o"/>
+<text x="478" y="46" text-anchor="middle" font-size="18" font-weight="700">💻 Local lab</text>
+<g transform="translate(478 125)"><path d="M-60 0c0-34 40-34 60 0s60 34 60 0-40-34-60 0-60 34-60 0z" fill="none" stroke="var(--kelp)" stroke-width="9" stroke-linecap="round"/><text y="14" text-anchor="middle" font-size="12" style="fill:var(--kelp)"> </text></g>
+<text x="478" y="205" text-anchor="middle" font-size="26">♾️ never expires</text><text x="478" y="240" text-anchor="middle" font-size="15">💥 break • 🔧 fix • 🔁 rebuild</text></svg></section>
+
+<section class="scene"><h2><span>3</span>The series roadmap</h2><p class="say">"Lab 1 is the foundation. Every later lab depends on it."</p>
+<svg viewBox="0 0 640 250" role="img" aria-label="Road with five stops: Lab 1 cluster, CI/CD, Gateway API, Helm, monitoring">
+<path d="M40 150C140 60 200 220 320 140S500 70 600 150" fill="none" stroke="var(--line)" stroke-width="22" stroke-linecap="round"/><path d="M40 150C140 60 200 220 320 140S500 70 600 150" fill="none" stroke="var(--surface)" stroke-width="3" stroke-dasharray="10 12"/>
+<g text-anchor="middle" font-size="13">
+<g transform="translate(60 138)"><circle r="30" fill="var(--kelp)" class="o"/><text y="9" font-size="26" style="fill:#fff">1</text><text y="-42" font-size="14" font-weight="700" style="fill:var(--kelp)">⭐ YOU ARE HERE</text><text y="58">Lab 1</text><text y="75" class="m">3-node cluster</text></g>
+<g transform="translate(205 160)"><circle r="26" fill="var(--sea-soft)" class="o"/><text y="8" font-size="22">🚀</text><text y="-38">GitHub Actions</text><text y="-22">CI/CD</text></g>
+<g transform="translate(330 138)"><circle r="26" fill="var(--sea-soft)" class="o"/><text y="8" font-size="22">🚪</text><text y="50">Gateway API</text><text y="66" class="m">route traffic</text></g>
+<g transform="translate(455 100)"><circle r="26" fill="var(--sea-soft)" class="o"/><text y="8" font-size="22">⛵</text><text y="-38">Helm charts</text><text y="-22" class="m">easy installs</text></g>
+<g transform="translate(580 148)"><circle r="26" fill="var(--sea-soft)" class="o"/><text y="8" font-size="22">📊</text><text y="48">Monitoring</text><text y="64" class="m">watch it all</text></g></g></svg></section>
+
+<section class="scene"><h2><span>4</span>Minimum configuration</h2><p class="say">"No expensive machine. 3 VMs use only about 6 GB of RAM."</p>
+<svg viewBox="0 0 640 270" role="img" aria-label="Laptop with 16GB RAM, i5, SSD, and a RAM bar showing 6 of 16 used">
+<g transform="translate(120 120)"><rect x="-90" y="-80" width="180" height="120" rx="12" fill="var(--sea-soft)" class="o"/><path d="M-115 40h230l-14 28h-202z" fill="var(--line)" class="o"/><use href="#face" y="-32" transform="translate(0 -32) scale(1.8) translate(0 17.8)"/><text y="-52" text-anchor="middle" font-size="0"> </text></g>
+<g font-size="15">
+<g transform="translate(300 40)"><rect width="150" height="46" rx="12" fill="var(--kelp-soft)" class="o"/><text x="75" y="30" text-anchor="middle">🧠 RAM 16 GB</text></g>
+<g transform="translate(300 100)"><rect width="150" height="46" rx="12" fill="var(--buoy-soft)" class="o"/><text x="75" y="30" text-anchor="middle">⚙️ Intel i5</text></g>
+<g transform="translate(300 160)"><rect width="150" height="46" rx="12" fill="var(--sea-soft)" class="o"/><text x="75" y="30" text-anchor="middle">💾 SSD ≤ 500 GB</text></g></g>
+<g transform="translate(480 40)"><text x="70" y="14" text-anchor="middle" font-size="14" font-weight="700">RAM in use</text><rect x="40" y="28" width="60" height="190" rx="10" fill="var(--surface)" class="o"/><rect x="40" y="28" width="60" height="119" rx="10" fill="var(--line)" stroke="none"/><rect x="40" y="147" width="60" height="71" rx="10" fill="var(--kelp)" class="o"/><text x="70" y="188" text-anchor="middle" font-size="14" style="fill:#fff">VMs 6</text><text x="70" y="96" text-anchor="middle" font-size="13">Windows</text><text x="70" y="113" text-anchor="middle" font-size="13">+ apps</text><text x="70" y="240" text-anchor="middle" font-size="13" class="m">of 16 GB</text></g></svg></section>
+
+<section class="scene"><h2><span>5</span>Our three tools</h2><p class="say">"VirtualBox runs the VMs, Multipass creates them, kubectl talks to Kubernetes."</p>
+<svg viewBox="0 0 640 250" role="img" aria-label="VirtualBox, Multipass and kubectl as three cartoon helpers">
+<g text-anchor="middle">
+<g transform="translate(110 100)"><path d="M0-62l55 30v62l-55 30-55-30v-62z" fill="var(--sea-soft)" class="o"/><path d="M-55-32l55 30 55-30M0-2v60" fill="none" stroke="var(--ink)" stroke-width="3"/><text y="-80" font-size="22">📦</text><text y="112" font-size="17" font-weight="700">VirtualBox</text><text y="134" font-size="13" class="m">runs the virtual machines</text></g>
+<g transform="translate(320 100)"><circle r="58" fill="var(--kelp-soft)" class="o"/><use href="#face" transform="translate(0 -4) scale(1.6)"/><text y="-72" font-size="22">🪄</text><text y="112" font-size="17" font-weight="700">Multipass</text><text y="134" font-size="13" class="m">Ubuntu VM in one command</text></g>
+<g transform="translate(530 100)"><rect x="-60" y="-50" width="120" height="100" rx="12" fill="#0d1b2e" class="o"/><text x="-44" y="-12" font-size="15" text-anchor="start" style="fill:#7be0b5">$ kubectl</text><text x="-44" y="16" font-size="15" text-anchor="start" style="fill:#dbe7f7">get nodes_</text><text y="-68" font-size="22">🎮</text><text y="112" font-size="17" font-weight="700">kubectl</text><text y="134" font-size="13" class="m">how we talk to Kubernetes</text></g></g>
+<g class="m" font-size="26" text-anchor="middle"><text x="215" y="108">➜</text><text x="425" y="108">➜</text></g></svg></section>
+
+<section class="scene"><h2><span>6</span>What we build</h2><p class="say">"3 VMs, fixed IPs, install Kubernetes, join workers, see all 3 nodes Ready."</p>
+<svg viewBox="0 0 640 330" role="img" aria-label="Windows PC with kubectl controlling one controller and two workers, all Ready">
+<g transform="translate(320 50)"><rect x="-78" y="-36" width="156" height="72" rx="12" fill="var(--sea-soft)" class="o"/><text y="-8" text-anchor="middle" font-size="15" font-weight="700">🪟 Windows PC</text><text y="18" text-anchor="middle" font-size="13">kubectl get nodes</text></g>
+<path d="M320 90V120M320 120H110V160M320 120H530V160M320 120V160" fill="none" stroke="var(--sea)" stroke-width="4" stroke-dasharray="3 9" stroke-linecap="round"/>
+<g text-anchor="middle">
+<g transform="translate(110 215)"><use href="#node"/><text y="64" font-size="14" font-weight="700">worker-node1</text><rect x="-34" y="76" width="68" height="24" rx="12" fill="var(--kelp)"/><text y="93" font-size="13" style="fill:#fff">Ready ✔</text></g>
+<g transform="translate(320 215)"><use href="#node"/><path d="M-20-48l8 14 12-14 12 14 8-14v-6h-40z" fill="#f5c542" class="o" style="stroke-width:2"/><text y="64" font-size="14" font-weight="700">controller-001</text><rect x="-34" y="76" width="68" height="24" rx="12" fill="var(--kelp)"/><text y="93" font-size="13" style="fill:#fff">Ready ✔</text></g>
+<g transform="translate(530 215)"><use href="#node"/><text y="64" font-size="14" font-weight="700">worker-node2</text><rect x="-34" y="76" width="68" height="24" rx="12" fill="var(--kelp)"/><text y="93" font-size="13" style="fill:#fff">Ready ✔</text></g></g>
+<text x="320" y="322" text-anchor="middle" font-size="13" class="m">📌 fixed IP on every node so the cluster survives restarts</text></svg></section>
+</main></body></html>
