@@ -286,7 +286,8 @@ footer{margin-top:70px;color:var(--muted);font-size:.85rem;border-top:1px solid 
     <a class="btn" href="https://canonical.com/multipass/install" target="_blank" rel="noopener"><svg class="i"><use href="#i-download"/></svg>canonical.com/multipass/install</a>
   </div>
   <div class="code"><div class="code-top"><span>PowerShell &mdash; confirm the driver</span><button class="copy" type="button"><svg class="i"><use href="#i-copy"/></svg><span>Copy</span></button></div>
-<pre>multipass get local.driver
+<pre>$env:Path += ';C:\Program Files\Multipass\bin'
+multipass get local.driver
 multipass version</pre></div>
   <div class="note"><svg class="i"><use href="#i-info"/></svg><p>The first command should print <code>virtualbox</code>. If it prints <code>hyperv</code> instead, switch it with <code>multipass set local.driver=virtualbox</code> (only works before any VM has been created).</p></div>
 
